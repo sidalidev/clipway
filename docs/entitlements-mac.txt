@@ -1,0 +1,11 @@
+# Entitlements the Mac app may have, one per line. Lines starting with # are ignored.
+# CI fails if mac/Clipway/Clipway.entitlements has anything else (or misses one).
+# Why each one: docs/PROTOCOL.md, section 7.
+com.apple.security.app-sandbox
+com.apple.security.network.client
+# Images and files go straight to the phone: the Mac listens on the local network while it offers one (2 minutes at most).
+com.apple.security.network.server
+com.apple.security.files.downloads.read-write
+com.apple.security.files.user-selected.read-write
+com.apple.security.print
+com.apple.security.device.bluetooth

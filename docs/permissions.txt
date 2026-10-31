@@ -1,0 +1,27 @@
+# Permissions the Android app asks for, one per line. Lines starting with # are ignored.
+# CI fails if the merged release manifest asks for anything else (aapt2 dump permissions gives the same list).
+# Why each one: docs/PROTOCOL.md, sections 6 and 13.
+
+# The WebSocket to the relay, and reconnecting at once when the network comes back or changes.
+android.permission.INTERNET
+android.permission.ACCESS_NETWORK_STATE
+# "Copied from <Mac>" for 4 seconds and the connection notification. Asked during setup (Android 13+).
+android.permission.POST_NOTIFICATIONS
+# The connection runs in a foreground service of type specialUse (dataSync is capped at 6 h a day).
+android.permission.FOREGROUND_SERVICE
+android.permission.FOREGROUND_SERVICE_SPECIAL_USE
+# Start when the phone starts: a setting, on by default; the receiver is disabled when it is off.
+android.permission.RECEIVE_BOOT_COMPLETED
+# The watchdog alarm keeps the processor awake a few seconds, until the relay answers its ping.
+android.permission.WAKE_LOCK
+# Asked once during setup, with one sentence on why, so the connection survives battery optimization.
+android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+# Scanning the pairing code. Asked only when the user taps Scan the code.
+android.permission.CAMERA
+# Show my key: fingerprint, face or the phone's PIN first (USE_FINGERPRINT, added by a library, is removed).
+android.permission.USE_BIOMETRIC
+# Pair nearby: find the Mac next to the phone and exchange keys with it over Bluetooth LE, only on that screen.
+# Asked at the tap on Pair nearby (Android 13+). BLUETOOTH_SCAN is declared with
+# android:usesPermissionFlags="neverForLocation": no location, and no location permission.
+android.permission.BLUETOOTH_SCAN
+android.permission.BLUETOOTH_CONNECT

@@ -1,0 +1,47 @@
+name: clipway
+# Relay of the reference service, clip.sidali.dev, behind the host's Traefik (network traefik_web).
+# Deploy, on the server, in the folder holding this repository ($CLIPWAY_DIR):
+#   cd "$CLIPWAY_DIR" && git pull && docker compose -f deploy/docker-compose.yml up -d --build
+services:
+  relay:
+    build:
+      context: ../relay
+    image: clipway-relay:0.3.0
+    container_name: clipway-relay
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    # Queues live in memory: leave room above CLIPWAY_MAX_TOTAL_MB for Node itself.
+    mem_limit: 512m
+    stop_grace_period: 5s
+    environment:
+      PORT: "7710"
+      # Behind Traefik: per-IP limits read X-Forwarded-For.
+      CLIPWAY_TRUST_PROXY: "1"
+      CLIPWAY_TTL_H: "24"
+      CLIPWAY_MAX_TOTAL_MB: "256"
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
+    networks:
+      - traefik_web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_web"
+      - "traefik.http.services.clipway-relay.loadbalancer.server.port=7710"
+      - "traefik.http.routers.clipway-relay-secure.rule=Host(`clip.sidali.dev`)"
+      - "traefik.http.routers.clipway-relay-secure.entrypoints=websecure"
+      - "traefik.http.routers.clipway-relay-secure.tls=true"
+      - "traefik.http.routers.clipway-relay-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.clipway-relay-secure.service=clipway-relay"
+      - "traefik.http.routers.clipway-relay.rule=Host(`clip.sidali.dev`)"
+      - "traefik.http.routers.clipway-relay.entrypoints=web"
+      - "traefik.http.routers.clipway-relay.middlewares=clipway-https-redirect"
+      - "traefik.http.middlewares.clipway-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.clipway-https-redirect.redirectscheme.permanent=true"
+
+networks:
+  traefik_web:
+    external: true

@@ -1,0 +1,328 @@
+<resources>
+    <string name="app_name" translatable="false">Clipway</string>
+    <string name="clip_label" translatable="false">Clipway</string>
+
+    <!-- Common -->
+    <string name="back">Back</string>
+    <string name="cancel">Cancel</string>
+    <string name="done">Done</string>
+    <string name="save">Save</string>
+    <string name="allow">Allow</string>
+    <string name="add">Add</string>
+    <string name="open">Open</string>
+    <string name="copy">Copy</string>
+    <string name="copied">Copied</string>
+    <string name="delete">Delete</string>
+    <string name="undo">Undo</string>
+    <string name="not_now">Not now</string>
+    <string name="continue_action">Continue</string>
+    <string name="saved">Saved to your password manager</string>
+    <string name="save_failed">No password manager took it. Print a rescue kit instead.</string>
+    <string name="your_mac">your Mac</string>
+    <string name="unavailable">Unavailable</string>
+    <string name="no_app_for_link">No app can open this. Write to %1$s.</string>
+    <string name="no_app_for_file">No app on this phone opens this kind of file.</string>
+    <string name="version">Version %1$s</string>
+
+    <!-- Tabs -->
+    <string name="tab_home">Home</string>
+    <string name="tab_history">History</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- First launch -->
+    <string name="welcome_title">Your clipboard, on both sides</string>
+    <string name="welcome_body">Copy on your Mac, paste on your phone. And back, with one tap. End-to-end encrypted, no account.</string>
+    <string name="welcome_action">Pair with my Mac</string>
+    <string name="welcome_note">You need Clipway on your Mac too.</string>
+    <string name="hero_mac">Your Mac</string>
+    <string name="hero_relay">Encrypted</string>
+    <string name="hero_phone">Your phone</string>
+    <string name="hero_description">A copied text goes from your Mac to your phone through an encrypted relay, then another one comes back.</string>
+
+    <string name="pair_title">Pair with your Mac</string>
+    <string name="pair_body">Your Mac shows a code and 12 words when you choose Show a code instead. Either one pairs this phone.</string>
+    <string name="pair_body_nearby">Keep this phone near your Mac. Both screens show the same code, and you press Pair on both.</string>
+    <string name="pair_step1">On your Mac, click Clipway in the menu bar.</string>
+    <string name="pair_step2">Choose Pair a phone.</string>
+    <string name="pair_step3">Choose Show a code instead, then scan it or type its 12 words.</string>
+    <string name="pair_step3_nearby">Tap Pair nearby, and check that both screens show the same code.</string>
+    <string name="pair_scan">Scan the code</string>
+    <string name="pair_scan_instead">Scan a code instead</string>
+    <string name="camera_why">The camera is only used to read the code. Nothing is recorded.</string>
+
+    <!-- Pair nearby (docs/PROTOCOL.md, 13.8) -->
+    <string name="nearby_action">Pair nearby</string>
+    <string name="nearby_title">Pair nearby</string>
+    <string name="nearby_why">Clipway uses Bluetooth to find your Mac and show the same code on both screens. It never uses your location.</string>
+    <string name="nearby_searching">Looking for your Mac. Keep your phone near it.</string>
+    <string name="nearby_searching_description">Searching for your Mac</string>
+    <string name="nearby_check">Check that your Mac shows the same code.</string>
+    <string name="nearby_code_spoken">Code: %1$s</string>
+    <string name="nearby_press_mac">Now press Pair on your Mac.</string>
+    <string name="nearby_finishing">Pairing with your Mac…</string>
+    <string name="nearby_no_mac">No Mac found nearby</string>
+    <string name="nearby_no_mac_detail">On your Mac, choose Pair a phone in the Clipway menu, and keep your phone near it.</string>
+    <string name="nearby_canceled">Pairing was canceled on your Mac.</string>
+    <string name="nearby_expired">Time is up. Try again.</string>
+    <string name="nearby_failed">Couldn\'t pair. Try again, or scan a code instead.</string>
+    <string name="nearby_busy">Your Mac is pairing with another phone. Try again.</string>
+    <string name="nearby_bluetooth_off">Turn on Bluetooth to pair nearby.</string>
+    <string name="nearby_not_allowed">Clipway needs Nearby devices to find your Mac. Allow it in Settings, or scan a code instead.</string>
+    <string name="nearby_unavailable">Bluetooth isn\'t available on this phone. Scan a code instead.</string>
+    <string name="try_again">Try again</string>
+    <string name="turn_on_bluetooth">Turn on Bluetooth</string>
+    <string name="open_settings">Open Settings</string>
+    <string name="pair_type">Type the 12 words</string>
+    <string name="pair_password_manager">Use my password manager</string>
+    <string name="pair_action">Pair</string>
+    <string name="scan_hint">Point the camera at the code on your Mac.</string>
+    <string name="type_hint">Separate the words with spaces. A pasted clipway: code works too.</string>
+    <string name="words_label">Your 12 words</string>
+    <string name="words_placeholder">word1 word2 word3 …</string>
+    <string name="camera_denied">The camera is off for Clipway. Type the 12 words instead, or allow the camera in Settings.</string>
+    <string name="password_manager_nothing">Your password manager has no Clipway key. Scan the code or type the words.</string>
+    <string name="error_twelve">Type all 12 words.</string>
+    <string name="error_unknown_word">Check the words: one of them is not in the list.</string>
+    <string name="error_checksum">These words do not form a valid key. Check their order.</string>
+    <string name="error_code">This is not a Clipway code. Scan the code your Mac shows.</string>
+    <string name="error_relay_refused">This code points to a relay this app cannot use (https only).</string>
+    <string name="other_relay_title">Another relay</string>
+    <string name="other_relay_body">This code uses the relay %1$s, not the default one. Your items will go through it, encrypted. Use it?</string>
+    <string name="other_relay_use">Use this relay</string>
+
+    <string name="save_title">Save your key</string>
+    <string name="save_body">Your 12 words are your key. Save them in your password manager, so you can pair again if you lose this phone.</string>
+    <string name="save_password_manager">Save to your password manager</string>
+    <string name="print_kit">Print a rescue kit</string>
+    <string name="print_kit_detail">Your 12 words on paper, and a page for someone you trust</string>
+    <string name="connecting_to_mac">Connecting to your Mac…</string>
+    <string name="finish_setup">Finish setting up</string>
+    <string name="key_truth">If you lose these 12 words and all your devices, nobody can recover your key, not even us.</string>
+    <string name="setup_notifications">Notifications</string>
+    <string name="setup_notifications_why">To show \"Copied from your Mac\" for a few seconds. Never on the lock screen.</string>
+    <string name="setup_tile">Send to Mac tile</string>
+    <string name="setup_tile_why">Send your clipboard from Quick Settings in one tap.</string>
+    <string name="setup_battery">Background use</string>
+    <string name="setup_battery_why">Keeps the connection open, so what you copy on your Mac arrives at once.</string>
+    <!-- Permissions -->
+    <string name="permissions">Permissions</string>
+    <string name="permissions_detail">What Clipway may use, and why</string>
+    <string name="permissions_intro">Turn each one on or off at any time. Without one, Clipway keeps working and only that feature waits.</string>
+    <string name="permissions_also">Also used, without asking: the network, to reach your relay; starting with the phone (Settings, Background); your fingerprint or PIN, before Show my key. No location, no contacts, no access to your other files.</string>
+    <string name="access_on">On</string>
+    <string name="access_off">Off</string>
+    <string name="access_not_asked">Not asked</string>
+    <string name="turn_on_in_settings">Turn on in Settings</string>
+    <string name="turn_off_in_settings">Turn off in Settings</string>
+    <string name="notifications_off">Off: what your Mac sends is still copied, without a notice. Turn them on to see it again.</string>
+    <string name="notifications_not_asked">Clipway asks when you tap here.</string>
+    <string name="nearby_devices">Nearby devices</string>
+    <string name="nearby_row_why">Pair nearby finds your Mac over Bluetooth, only while you pair. Never your location.</string>
+    <string name="nearby_off">Off: pair with the code or the 12 words instead, or allow it here.</string>
+    <string name="nearby_not_asked">Asked only when you tap Pair nearby, or here.</string>
+    <string name="nearby_where">In App info: Permissions, then Nearby devices.</string>
+    <string name="camera">Camera</string>
+    <string name="camera_row_why">Scans the pairing code your Mac shows. Nothing is recorded.</string>
+    <string name="camera_off">Off: type the 12 words instead, or allow it here.</string>
+    <string name="camera_not_asked">Asked only when you tap Scan the code, or here.</string>
+    <string name="camera_where">In App info: Permissions, then Camera.</string>
+    <string name="battery_off">Off: Android may pause the connection. What you copy on your Mac then arrives when you open Clipway.</string>
+    <string name="battery_where">In the list: tap Clipway, then Optimize.</string>
+    <string name="tile_manual">Open Quick Settings, tap the pencil, and drag Send to Mac in.</string>
+
+    <!-- Home -->
+    <string name="send_clipboard">Send clipboard</string>
+    <string name="last_item">Last item</string>
+    <string name="see_history">See history</string>
+    <string name="nothing_yet_home">Nothing yet. Copy something on %1$s and it lands here and in your clipboard.</string>
+    <string name="connected_to">Connected to %1$s</string>
+    <string name="mac_offline">%1$s is offline</string>
+    <string name="connecting">Connecting</string>
+    <string name="waiting_for_network">Waiting for network</string>
+    <string name="relay_unreachable">Can\'t reach the relay</string>
+    <string name="waiting_for">Waiting for %1$s</string>
+    <string name="status_online_detail">What you copy on your Mac lands in this phone\'s clipboard.</string>
+    <string name="status_waiting_detail">What you send waits for it on the relay, up to 24 hours.</string>
+    <string name="status_network_detail">Clipway reconnects as soon as the phone is online.</string>
+    <string name="status_unreachable_detail">Clipway keeps trying. Check the relay in Settings if this lasts.</string>
+    <string name="status_connecting_detail">This takes a second.</string>
+    <string name="chain_erased_title">Your key was erased</string>
+    <string name="chain_erased_short">Key erased on another device</string>
+    <string name="chain_erased_body">Another device erased this key from the relay. Pair again with your Mac to keep using Clipway.</string>
+    <string name="pair_again">Pair again</string>
+    <string name="tip_title">Send without opening Clipway</string>
+    <string name="tip_body">Add the Send to Mac tile to Quick Settings, or select text and choose Send to Mac.</string>
+    <string name="add_tile">Add the tile</string>
+    <string name="notice_update">This relay asks for a newer Clipway. Update the app to keep syncing.</string>
+    <string name="notice_end">This relay is closing. Choose another relay in Settings.</string>
+    <string name="notice_degraded">This relay has a problem right now. Items may be slow.</string>
+
+    <!-- Sending -->
+    <string name="tile_label">Send to Mac</string>
+    <string name="power_title">Clipway</string>
+    <string name="power_on">On</string>
+    <string name="power_paused">Paused</string>
+    <string name="power_on_detail">Sends and receives in the background.</string>
+    <string name="power_paused_detail">Nothing is sent or received. What %1$s sends waits on the relay for 24 hours at most.</string>
+    <string name="paused_toast">Clipway is paused. Turn it on in Clipway to send.</string>
+    <string name="process_text_label">Send to Mac</string>
+    <string name="share_label">Send to Mac</string>
+    <string name="sent_to">Sent to %1$s</string>
+    <plurals name="sent_many">
+        <item quantity="one">%1$d item sent to %2$s</item>
+        <item quantity="other">%1$d items sent to %2$s</item>
+    </plurals>
+    <string name="not_paired_toast">Pair Clipway with your Mac first.</string>
+    <string name="clipboard_empty">Clipboard is empty</string>
+    <string name="nothing_to_send">Nothing to send</string>
+    <string name="not_sent_sensitive">Not sent: marked as sensitive</string>
+    <string name="too_large">Too large: Clipway sends up to 25 MB</string>
+    <string name="too_long">Too long: Clipway sends texts up to 64 KB</string>
+    <string name="sending_directly">Sending directly to %1$s</string>
+    <string name="no_local_network">Not sent: connect to the same Wi-Fi as your Mac</string>
+    <string name="already_sent">Already sent</string>
+
+    <!-- Receiving -->
+    <string name="channel_connection">Connection</string>
+    <string name="channel_received">Received</string>
+    <string name="copied_from">Copied from %1$s</string>
+    <string name="received_file">Received %1$s from %2$s</string>
+    <string name="channel_direct">Images and files</string>
+    <string name="not_received_network">Couldn\'t receive %1$s from %2$s</string>
+    <string name="not_received_network_body">Your phone and your Mac need to be on the same network.</string>
+    <string name="not_received_failed_body">The transfer broke. Ask for it again.</string>
+    <string name="not_sent_title">%1$s not sent</string>
+    <string name="not_sent_network_body">Your phone and %1$s aren\'t on the same network.</string>
+    <string name="not_sent_expired_body">%1$s didn\'t answer. Both need to be on, with Clipway on, on the same network.</string>
+    <string name="not_sent_failed_body">The transfer broke. Try again.</string>
+    <string name="an_image_lower">An image</string>
+
+    <!-- History -->
+    <string name="history">History</string>
+    <string name="history_empty">Nothing here yet. The last 50 items you send and receive appear here, encrypted on this phone.</string>
+    <string name="thats_everything">That\'s everything</string>
+    <string name="export">Export</string>
+    <string name="clear_history">Clear</string>
+    <string name="export_title">Export history</string>
+    <string name="export_body">The export is a ZIP file that is not encrypted. Anyone who gets the file can read it.</string>
+    <string name="exported">History exported</string>
+    <string name="export_failed">The export could not be written. Try another place.</string>
+    <string name="content_removed">Content removed to save space</string>
+    <string name="an_image">Image</string>
+    <string name="a_file">File</string>
+    <string name="from_device">From %1$s</string>
+    <string name="state_sending">Sending</string>
+    <string name="state_sent">Sent</string>
+    <string name="state_delivered">Delivered</string>
+    <string name="state_failed">Not sent</string>
+    <string name="state_unreachable">Not sent: not on the same network</string>
+    <string name="just_now">Just now</string>
+    <plurals name="minutes_ago">
+        <item quantity="one">%1$d min ago</item>
+        <item quantity="other">%1$d min ago</item>
+    </plurals>
+    <plurals name="hours_ago">
+        <item quantity="one">%1$d hour ago</item>
+        <item quantity="other">%1$d hours ago</item>
+    </plurals>
+    <plurals name="deleted">
+        <item quantity="one">%1$d item deleted</item>
+        <item quantity="other">%1$d items deleted</item>
+    </plurals>
+
+    <!-- Settings -->
+    <string name="settings">Settings</string>
+    <string name="this_phone">This phone</string>
+    <string name="device_name">Name</string>
+    <string name="device_name_body">How your Mac calls this phone. It travels encrypted: the relay never sees it.</string>
+    <string name="relay">Relay</string>
+    <string name="relay_detail">Your Mac must use the same one</string>
+    <string name="relay_body">The relay passes your encrypted items along. Anyone can host one. Your Mac must use the same relay.</string>
+    <string name="relay_refused">Use an https:// address.</string>
+    <string name="relay_default">Use the default relay</string>
+    <string name="from_your_mac">From your Mac</string>
+    <string name="copy_automatically">Copy automatically</string>
+    <string name="copy_automatically_detail">What you copy on your Mac goes straight into this phone\'s clipboard.</string>
+    <string name="images_too">Images too</string>
+    <string name="images_too_detail">Off: images only go to history.</string>
+    <string name="background">Background</string>
+    <string name="start_at_boot">Start when the phone starts</string>
+    <string name="start_at_boot_detail">Off: Clipway connects when you open it.</string>
+    <string name="your_key">Your key</string>
+    <string name="show_key">Show my key</string>
+    <string name="key_unlock_title">Show your key</string>
+    <string name="key_unlock_body">Unlock to see your 12 words.</string>
+    <string name="key_confirm_body">Anyone who sees these 12 words can read what you copy. Make sure nobody is looking.</string>
+    <string name="key_body">These 12 words are your key. Anyone who has them can read what you copy. Keep them in your password manager or on paper, never in a note or a photo.</string>
+    <string name="key_qr">Pairing code for another device</string>
+    <string name="key_hides">Hidden again in 60 seconds.</string>
+    <string name="kit_job">Clipway rescue kit</string>
+    <string name="kit_title">Clipway rescue kit</string>
+    <string name="kit_page1">These 12 words are the key of your Clipway devices. To pair a new device, install Clipway, choose Pair, and scan this code or type the words. Relay: %1$s.</string>
+    <string name="kit_warning">Anyone who has these words can read what you copy. Keep this page somewhere safe.</string>
+    <string name="kit_trust_title">For someone you trust</string>
+    <string name="kit_trust_body">Clipway is a clipboard shared between a Mac and an Android phone, end-to-end encrypted. Its key is the 12 words on the first page; a copy may also be in the owner\'s password manager under the name Clipway.\nThe items pass through the relay %1$s and are erased from it after 24 hours at most. Nothing is kept in a cloud.\nThe history on each device is encrypted. If the owner exported it, the export is a ZIP file: history.json opens in any text editor (or with jq), and the images are in the items folder.\nTo read the key or the history, install Clipway, choose Pair, and type the 12 words.</string>
+    <string name="about">About</string>
+
+    <!-- About -->
+    <string name="principles">Our principles</string>
+    <string name="principle1">Your data belongs to you.</string>
+    <string name="principle2">No account. No tracking. No ads.</string>
+    <string name="principle3">Nothing leaves your device unless you choose it.</string>
+    <string name="principle4">The code will be published, so anyone can check this.</string>
+    <string name="what_leaves">What leaves your device</string>
+    <string name="version_title">Version</string>
+    <string name="whats_new">What\'s new</string>
+    <string name="security">Security</string>
+    <string name="last_review">Last security review: %1$s</string>
+    <string name="audit_state">Internal review. No external audit yet.</string>
+    <string name="signing_certificate">Signing certificate</string>
+    <string name="report_issue">Report a security issue</string>
+    <string name="security_subject">Clipway security issue</string>
+    <string name="links">Links</string>
+    <string name="privacy_policy">Privacy policy</string>
+    <string name="contact">Contact</string>
+    <string name="footer">Made by Sid · sidali.dev</string>
+    <string name="fonts_credit">Fonts: Bricolage Grotesque and Figtree, SIL Open Font License.</string>
+    <string name="open_site">Open sidali.dev</string>
+
+    <string name="erase_title">Erase everything</string>
+    <string name="erase_hint">Deletes the key, the history and the settings on this phone. Files in Downloads stay.</string>
+    <string name="erase_confirm_title">Erase everything</string>
+    <string name="erase_confirm_body">This phone forgets the key, the history and the settings, and Clipway starts over. This cannot be undone. Files saved in Downloads stay.</string>
+    <string name="erase_relay">Also erase the key on the relay</string>
+    <string name="erase_relay_detail">Unpairs your Mac too and deletes what waits on the relay. Without network, the relay erases it within 24 hours.</string>
+    <string name="erase_type">Type %1$s to confirm.</string>
+    <string name="erase_word" translatable="false">ERASE</string>
+    <string name="erase_field">Confirmation</string>
+    <string name="erase">Erase</string>
+    <string name="erased">Everything is erased</string>
+
+    <!-- What leaves your device -->
+    <string name="leaves_encrypted">Encrypted</string>
+    <string name="leaves_sent_title">What you send</string>
+    <string name="leaves_sent_body">Texts you send with the tile, Send to Mac in the text menu, the share menu or Send clipboard, 64 KB at most. Never on their own: Android does not let apps read the clipboard in the background. Sent to the relay %1$s, end-to-end encrypted, with this phone\'s name inside.</string>
+    <string name="leaves_direct_title">Images and files: never on a server</string>
+    <string name="leaves_direct_body">They go straight from this phone to your Mac over your local network, encrypted with a key made for that one transfer. The relay only passes a short encrypted note that tells your Mac where to fetch it. So both devices need to be on the same network. Nobody can check what travels encrypted without an account, so our relay refuses to carry pictures or files at all.</string>
+    <string name="leaves_received_title">What your Mac sends</string>
+    <string name="leaves_received_body">Texts come from the relay %1$s, end-to-end encrypted. Images and files come straight from your Mac over your local network, encrypted with a key made for that one transfer. Only your devices hold the key.</string>
+    <string name="leaves_relay_title">What the relay sees</string>
+    <string name="leaves_relay_body">A random chain id, the time and size of each item, how many of your devices are connected, and your IP address while connected. Never the content, file names, device names, or whether an item is a text or a note about a file.</string>
+    <string name="leaves_time_title">How long</string>
+    <string name="leaves_time_body">Items wait on the relay for a device that is offline, 24 hours at most, in memory only. Then they are erased. The relay never logs your IP address. On clip.sidali.dev, the web server in front of it keeps IP addresses for 7 days.</string>
+    <string name="leaves_status_title">The relay\'s status</string>
+    <string name="leaves_status_body">Once a day, Clipway asks the relay %1$s if it is up and which app versions it accepts. No key and no content, only the app\'s name and version.</string>
+    <string name="leaves_never_title">Never sent</string>
+    <string name="leaves_never_body">What apps mark as sensitive, like a password copied from your password manager.</string>
+    <string name="leaves_bluetooth_title">Bluetooth, only while you pair</string>
+    <string name="leaves_bluetooth_body">Pair nearby uses Bluetooth only while you pair; no location is collected. Your Mac shows that it is pairing for 2 minutes at most, while its Pair nearby window is open, and sends the key to this phone over Bluetooth, encrypted, only after you press Pair on both. During those 2 minutes, devices in Bluetooth range can see that a Clipway Mac is pairing and read its Bluetooth name. Nothing about it is stored.</string>
+    <string name="leaves_key_title">Your key</string>
+    <string name="leaves_key_body">Never sent to the relay. It only goes to your password manager when you choose Save, and on paper when you print the rescue kit.</string>
+    <string name="leaves_stays">Stays on this phone</string>
+    <string name="stays_key">The key, encrypted by Android\'s keystore.</string>
+    <string name="stays_history">History: the last 50 items, encrypted. Erase everything destroys its key.</string>
+    <string name="stays_files">Received files, in Downloads/Clipway. They are yours.</string>
+    <string name="stays_local">While it sends an image or a file, for 2 minutes at most, this phone accepts one connection from your Mac on the local network. Without the key, a connection gets nothing.</string>
+    <string name="stays_backup">Nothing goes into backups or device transfers.</string>
+    <string name="leaves_nothing_else">Nothing else. No account, no analytics, no crash reports, no third-party services.</string>
+</resources>

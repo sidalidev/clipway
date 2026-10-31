@@ -1,0 +1,15 @@
+<resources>
+    <!-- Window background matches the first frame, so the launch has no flash. -->
+    <style name="Theme.Clipway" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <!-- Android 12+ launch screen: the app icon on the page color, then the first frame. -->
+        <item name="android:windowSplashScreenBackground">@color/bg</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+    <!-- Invisible activity used by the Send to Mac tile: it reads the clipboard, then closes. -->
+    <style name="Theme.Clipway.Invisible" parent="@android:style/Theme.Translucent.NoTitleBar">
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowNoDisplay">false</item>
+    </style>
+</resources>

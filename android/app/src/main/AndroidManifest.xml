@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The permissions below are exactly the ones in docs/permissions.txt (CI checks the merged release
+     manifest). Why each one: docs/PROTOCOL.md, section 6, and docs/permissions.txt. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- The relay connection (WebSocket), and reconnecting when the network changes. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- "Copied from your Mac" for a few seconds, and the connection notification. Asked during setup. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- The connection lives in a foreground service of type specialUse (dataSync is capped at 6 h a day). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Start when the phone starts (a setting, on by default; the receiver is off when the setting is). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- The watchdog alarm holds the processor a few seconds, until the relay answers its ping. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Asks once, with one sentence, to be left out of battery optimization, so the connection stays open. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Scanning the pairing code. Asked only when the user taps Scan the code. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Show my key: fingerprint, face or the phone's PIN first. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
+    <!-- Pair nearby: find the Mac next to the phone and exchange keys with it over Bluetooth LE, only on
+         that screen, asked at the tap (Android 13+). Never for location: no location permission. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+
+    <!-- Brought in by androidx.credentials (its biometric dependency); Show my key uses USE_BIOMETRIC only. -->
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" tools:node="remove" />
+
+    <!-- Added by AndroidX for receivers registered at run time before Android 13. Clipway registers one
+         only on Android 13+ (Pair nearby, Bluetooth turned off), with the platform's own flag. -->
+    <permission android:name="${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" tools:node="remove" />
+    <uses-permission android:name="${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" tools:node="remove" />
+
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/no_extraction"
+        android:fullBackupContent="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:enableOnBackInvokedCallback="true"
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Clipway"
+        tools:targetApi="34">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Started by the tile: invisible, reads the clipboard once it has focus, sends, closes. -->
+        <activity
+            android:name=".SendActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Clipway.Invisible" />
+
+        <!-- "Send to Mac" in the text selection menu. Sends the selection, changes nothing. -->
+        <activity
+            android:name=".ProcessTextActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:label="@string/process_text_label"
+            android:theme="@style/Theme.Clipway.Invisible">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!-- Share target: text, images and files. -->
+        <activity
+            android:name=".ShareActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:label="@string/share_label"
+            android:theme="@style/Theme.Clipway.Invisible">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".ClipService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps a connection to the user's own relay to receive clipboard items from their computer" />
+        </service>
+
+        <service
+            android:name=".SendTile"
+            android:exported="true"
+            android:icon="@drawable/ic_tile"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <receiver android:name=".Watchdog" android:exported="false" />
+
+        <receiver android:name=".BootReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name=".UpdateReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Read-only copies of received images, for the clipboard. Not exported: the clipboard grants
+             the app that pastes a temporary read permission. -->
+        <provider
+            android:name=".ClipProvider"
+            android:authorities="dev.sidali.clipway.clips"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+    </application>
+</manifest>

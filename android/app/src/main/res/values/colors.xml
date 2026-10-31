@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launch window: the page color of the app (cream), so the launch has no flash. -->
+    <color name="bg">#FFFBF7EF</color>
+    <!-- Clipway's color, Lac: the splash icon sits on it. -->
+    <color name="lac">#FF2E7FA1</color>
+</resources>

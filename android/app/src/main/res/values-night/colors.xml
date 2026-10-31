@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launch window, dark: the page color of the app (fir night), so the launch has no flash. -->
+    <color name="bg">#FF12201A</color>
+    <color name="lac">#FF2E7FA1</color>
+</resources>

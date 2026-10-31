@@ -1,0 +1,27 @@
+# Self-hosting example. Copy it as docker-compose.yml in this folder, then: docker compose up -d --build
+# Put a TLS reverse proxy (Caddy, Traefik, nginx) in front, on the same host, and keep
+# CLIPWAY_TRUST_PROXY=1 so that per-IP limits use X-Forwarded-For. Configure the proxy not to
+# log client addresses, and allow idle WebSocket connections of at least 10 minutes (see README.md).
+services:
+  clipway-relay:
+    build: .
+    image: clipway-relay:0.3.0
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    # Queues live in memory: leave room above CLIPWAY_MAX_TOTAL_MB for Node itself.
+    mem_limit: 512m
+    stop_grace_period: 5s
+    environment:
+      PORT: "7710"
+      CLIPWAY_TRUST_PROXY: "1"
+      CLIPWAY_TTL_H: "24"
+      CLIPWAY_MAX_TOTAL_MB: "256"
+    # Only the proxy on this host reaches the relay.
+    ports:
+      - "127.0.0.1:7710:7710"
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }

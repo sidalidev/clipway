@@ -1,0 +1,50 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: Tests (shared vectors and relay)
+        working-directory: relay
+        run: npm ci && npm test
+      - name: Vectors are up to date
+        run: node tools/gen-vectors.mjs && git diff --exit-code docs/VECTORS.json
+      - name: Docker image builds
+        run: docker build -t clipway-relay relay
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      # The Ubuntu runner ships the Android SDK; Gradle fetches the platform it needs.
+      - name: Unit tests, lint, release build (unsigned)
+        working-directory: android
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease -Punsigned
+      - name: Permissions, text, security review, changelog, tokens, vectors
+        run: bash .github/checks.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clipway-android-unsigned
+          path: android/app/build/outputs/apk/release/*.apk
+
+  mac:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Core tests (shared vectors)
+        run: swift test --package-path mac/ClipwayCore
+      - name: App builds (ad hoc signature)
+        run: xcodebuild -project mac/Clipway.xcodeproj -scheme Clipway -configuration Release -derivedDataPath mac/build CODE_SIGN_IDENTITY=- build

@@ -1,0 +1,21 @@
+{
+  "name": "clipway-relay",
+  "version": "0.3.0",
+  "description": "Clipway relay: passes end-to-end encrypted clipboard items between the devices of a sync chain, without accounts.",
+  "license": "AGPL-3.0-only",
+  "private": true,
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "client": "node tools/client.mjs",
+    "test": "node --test test/*.test.js",
+    "vectors": "node ../tools/gen-vectors.mjs"
+  },
+  "dependencies": {
+    "ws": "8.22.0"
+  }
+}

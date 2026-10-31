@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App Sandbox: the app reaches only the network (as a client; as a server only while it
+	     offers an image or a file to the phone on the local network, 2 minutes at most), the
+	     Downloads folder (received files go to Downloads/Clipway), the files the user picks (Send a
+	     file, and the history export it saves), the printer (rescue kit) and Bluetooth (Pair nearby,
+	     only while its window is open). The pasteboard needs no entitlement. -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
+	<true/>
+	<key>com.apple.security.files.downloads.read-write</key>
+	<true/>
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<key>com.apple.security.print</key>
+	<true/>
+	<key>com.apple.security.device.bluetooth</key>
+	<true/>
+</dict>
+</plist>

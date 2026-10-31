@@ -1,0 +1,484 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		036C0C8B083A352016998EF9 /* ClipwayApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC88AB87DCF81FF068D857E6 /* ClipwayApp.swift */; };
+		0716752C262951D97BDDEC86 /* StatusItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15A8CE1A1E856FAB1A6C20F0 /* StatusItem.swift */; };
+		0F4CE1CD1F227D260B175066 /* NearbyViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AAD3C9EAD70055BA78050E5 /* NearbyViews.swift */; };
+		2211040CE5E52A33B5097B2D /* System.swift in Sources */ = {isa = PBXBuildFile; fileRef = C92696E3AEC0095E7613920C /* System.swift */; };
+		320AEDCBC4F4CCBEB549469A /* PermissionsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AF55CD529C71DAD64CE5D41 /* PermissionsCard.swift */; };
+		3452D9186BFA5E260BBBADB6 /* BricolageGrotesque-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = E56455874CCEA6911F4AECA6 /* BricolageGrotesque-OFL.txt */; };
+		46D941C7AB77CB953A223B36 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25DA6415091A3940BAB2F214 /* SettingsView.swift */; };
+		471B11ED6F38770EA96D0A5A /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F665B13ECD2356379DBED321 /* HistoryView.swift */; };
+		575A0E9BCBBA1987FA96E32A /* ClipwayCore in Frameworks */ = {isa = PBXBuildFile; productRef = D925E780D73195C44FEB66AF /* ClipwayCore */; };
+		5A6ED4BFCD06C8B35BE14B54 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 844380DEC30F71C213296396 /* Assets.xcassets */; };
+		5D20542AB9BD4EEDC87FA9B3 /* Figtree.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 05BCB3E8D919D086EE2B8A40 /* Figtree.ttf */; };
+		5E0B93AA59E155B7F335A87B /* WindowRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCBE7F30CE7CBED4EFEABDDA /* WindowRouter.swift */; };
+		5F075657E284BD457D6CBBFF /* NearbyPairing.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA56BAF37DB0D7BB927FFA3A /* NearbyPairing.swift */; };
+		622277359CC8282C40DA8AE0 /* PRIVACY.md in Resources */ = {isa = PBXBuildFile; fileRef = EA0036322BC61E934F077349 /* PRIVACY.md */; };
+		69439A46BAAA266EEDC7175A /* Snapshots.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79186A4CEBCBF3B6B8F7D036 /* Snapshots.swift */; };
+		778F43D4BB875E093FE439AB /* CHANGELOG.md in Resources */ = {isa = PBXBuildFile; fileRef = 98CEEBD8F28AC356DAC408EA /* CHANGELOG.md */; };
+		86A66AC9734292D7A79288A0 /* Pasteboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 218C9F3E097869B91A20DB4A /* Pasteboard.swift */; };
+		8FC9E81A072B62DDFE058094 /* PairingViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19B867F80BBC205F77463EFB /* PairingViews.swift */; };
+		94B30077B476DA55C947E902 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D195231B7E4A0C026863D59 /* AppModel.swift */; };
+		BFB346022F40EAEF791F4937 /* Figtree-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = 28593B5EFEB2BF0FDF9461B1 /* Figtree-OFL.txt */; };
+		C059910BEEEF7CF6F3500614 /* BricolageGrotesque.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 14E87B293889AF840EEACF14 /* BricolageGrotesque.ttf */; };
+		C5F21FDEB411118E45DAC3B2 /* RescueKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45EA3A62BFA2E484C05B167D /* RescueKit.swift */; };
+		E95AF38B0A96CD6018993CF0 /* AboutViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87A3A34F1E804D0E4C0AF6B6 /* AboutViews.swift */; };
+		F16E40AAE3E9678F4454E506 /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45745F64A22B9365413D8BF0 /* Tokens.swift */; };
+		F209FFB8FF36038BEB05853F /* RelayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAADB5C33B550A97D14325DF /* RelayClient.swift */; };
+		FE1DA2AEBCAFB8801CDD1E60 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F978A1A0DBFBC3C6923F5A4 /* Components.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		026C6C40722698372E6123F3 /* Clipway.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Clipway.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		05BCB3E8D919D086EE2B8A40 /* Figtree.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Figtree.ttf; sourceTree = "<group>"; };
+		14E87B293889AF840EEACF14 /* BricolageGrotesque.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = BricolageGrotesque.ttf; sourceTree = "<group>"; };
+		15A8CE1A1E856FAB1A6C20F0 /* StatusItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItem.swift; sourceTree = "<group>"; };
+		19B867F80BBC205F77463EFB /* PairingViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingViews.swift; sourceTree = "<group>"; };
+		1D721913940AA70E513EAC49 /* ClipwayCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ClipwayCore; path = ClipwayCore; sourceTree = SOURCE_ROOT; };
+		218C9F3E097869B91A20DB4A /* Pasteboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pasteboard.swift; sourceTree = "<group>"; };
+		25DA6415091A3940BAB2F214 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		28593B5EFEB2BF0FDF9461B1 /* Figtree-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Figtree-OFL.txt"; sourceTree = "<group>"; };
+		2D195231B7E4A0C026863D59 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		45745F64A22B9365413D8BF0 /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
+		45EA3A62BFA2E484C05B167D /* RescueKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RescueKit.swift; sourceTree = "<group>"; };
+		6F978A1A0DBFBC3C6923F5A4 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		762EBA6E78F911A340C75957 /* Clipway.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Clipway.entitlements; sourceTree = "<group>"; };
+		79186A4CEBCBF3B6B8F7D036 /* Snapshots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Snapshots.swift; sourceTree = "<group>"; };
+		7AF55CD529C71DAD64CE5D41 /* PermissionsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionsCard.swift; sourceTree = "<group>"; };
+		844380DEC30F71C213296396 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		87A3A34F1E804D0E4C0AF6B6 /* AboutViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutViews.swift; sourceTree = "<group>"; };
+		8AAD3C9EAD70055BA78050E5 /* NearbyViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyViews.swift; sourceTree = "<group>"; };
+		98CEEBD8F28AC356DAC408EA /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
+		C92696E3AEC0095E7613920C /* System.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = System.swift; sourceTree = "<group>"; };
+		E56455874CCEA6911F4AECA6 /* BricolageGrotesque-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "BricolageGrotesque-OFL.txt"; sourceTree = "<group>"; };
+		EA0036322BC61E934F077349 /* PRIVACY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PRIVACY.md; sourceTree = "<group>"; };
+		EA56BAF37DB0D7BB927FFA3A /* NearbyPairing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyPairing.swift; sourceTree = "<group>"; };
+		EC88AB87DCF81FF068D857E6 /* ClipwayApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipwayApp.swift; sourceTree = "<group>"; };
+		F00AD24ADBCA2A94562A8E57 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		F665B13ECD2356379DBED321 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		FAADB5C33B550A97D14325DF /* RelayClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelayClient.swift; sourceTree = "<group>"; };
+		FCBE7F30CE7CBED4EFEABDDA /* WindowRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowRouter.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4F845AAC3ED62D2C9E741555 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				575A0E9BCBBA1987FA96E32A /* ClipwayCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		06B2F16FC41415C481777486 = {
+			isa = PBXGroup;
+			children = (
+				F62069171F6DE009982D9E99 /* Clipway */,
+				F7099A1E6507C9F43C313DB8 /* Clipway */,
+				0EEDE3ED96214F2C0DF663FA /* Packages */,
+				40DC1F4E775D70C3A2889BAE /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		0EEDE3ED96214F2C0DF663FA /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				1D721913940AA70E513EAC49 /* ClipwayCore */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		30FC35E858CAEF0E064571C4 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				E56455874CCEA6911F4AECA6 /* BricolageGrotesque-OFL.txt */,
+				14E87B293889AF840EEACF14 /* BricolageGrotesque.ttf */,
+				28593B5EFEB2BF0FDF9461B1 /* Figtree-OFL.txt */,
+				05BCB3E8D919D086EE2B8A40 /* Figtree.ttf */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
+		40DC1F4E775D70C3A2889BAE /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				026C6C40722698372E6123F3 /* Clipway.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CB100AF94017A0B0C5F82967 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				87A3A34F1E804D0E4C0AF6B6 /* AboutViews.swift */,
+				F665B13ECD2356379DBED321 /* HistoryView.swift */,
+				8AAD3C9EAD70055BA78050E5 /* NearbyViews.swift */,
+				19B867F80BBC205F77463EFB /* PairingViews.swift */,
+				7AF55CD529C71DAD64CE5D41 /* PermissionsCard.swift */,
+				25DA6415091A3940BAB2F214 /* SettingsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		F62069171F6DE009982D9E99 /* Clipway */ = {
+			isa = PBXGroup;
+			children = (
+				2D195231B7E4A0C026863D59 /* AppModel.swift */,
+				844380DEC30F71C213296396 /* Assets.xcassets */,
+				762EBA6E78F911A340C75957 /* Clipway.entitlements */,
+				EC88AB87DCF81FF068D857E6 /* ClipwayApp.swift */,
+				6F978A1A0DBFBC3C6923F5A4 /* Components.swift */,
+				F00AD24ADBCA2A94562A8E57 /* Info.plist */,
+				EA56BAF37DB0D7BB927FFA3A /* NearbyPairing.swift */,
+				218C9F3E097869B91A20DB4A /* Pasteboard.swift */,
+				FAADB5C33B550A97D14325DF /* RelayClient.swift */,
+				45EA3A62BFA2E484C05B167D /* RescueKit.swift */,
+				79186A4CEBCBF3B6B8F7D036 /* Snapshots.swift */,
+				15A8CE1A1E856FAB1A6C20F0 /* StatusItem.swift */,
+				C92696E3AEC0095E7613920C /* System.swift */,
+				45745F64A22B9365413D8BF0 /* Tokens.swift */,
+				FCBE7F30CE7CBED4EFEABDDA /* WindowRouter.swift */,
+				30FC35E858CAEF0E064571C4 /* Fonts */,
+				CB100AF94017A0B0C5F82967 /* Views */,
+			);
+			path = Clipway;
+			sourceTree = "<group>";
+		};
+		F7099A1E6507C9F43C313DB8 /* Clipway */ = {
+			isa = PBXGroup;
+			children = (
+				98CEEBD8F28AC356DAC408EA /* CHANGELOG.md */,
+				EA0036322BC61E934F077349 /* PRIVACY.md */,
+			);
+			name = Clipway;
+			path = ..;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		C2CB994A8F9DD77DF3B29C42 /* Clipway */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CD97DA0E84ED7204C5004D4F /* Build configuration list for PBXNativeTarget "Clipway" */;
+			buildPhases = (
+				B34F294B36C7FAFD01188A10 /* Sources */,
+				7BBE9B065F37F9503DADBF3C /* Resources */,
+				4F845AAC3ED62D2C9E741555 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Clipway;
+			packageProductDependencies = (
+				D925E780D73195C44FEB66AF /* ClipwayCore */,
+			);
+			productName = Clipway;
+			productReference = 026C6C40722698372E6123F3 /* Clipway.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D385BFF7D67FC38661898736 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					C2CB994A8F9DD77DF3B29C42 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = 6F4C6A939DE7D0B0990825CC /* Build configuration list for PBXProject "Clipway" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 06B2F16FC41415C481777486;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7A531766ABA1F69F08EB8717 /* XCLocalSwiftPackageReference "ClipwayCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 40DC1F4E775D70C3A2889BAE /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C2CB994A8F9DD77DF3B29C42 /* Clipway */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		7BBE9B065F37F9503DADBF3C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5A6ED4BFCD06C8B35BE14B54 /* Assets.xcassets in Resources */,
+				3452D9186BFA5E260BBBADB6 /* BricolageGrotesque-OFL.txt in Resources */,
+				C059910BEEEF7CF6F3500614 /* BricolageGrotesque.ttf in Resources */,
+				778F43D4BB875E093FE439AB /* CHANGELOG.md in Resources */,
+				BFB346022F40EAEF791F4937 /* Figtree-OFL.txt in Resources */,
+				5D20542AB9BD4EEDC87FA9B3 /* Figtree.ttf in Resources */,
+				622277359CC8282C40DA8AE0 /* PRIVACY.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		B34F294B36C7FAFD01188A10 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E95AF38B0A96CD6018993CF0 /* AboutViews.swift in Sources */,
+				94B30077B476DA55C947E902 /* AppModel.swift in Sources */,
+				036C0C8B083A352016998EF9 /* ClipwayApp.swift in Sources */,
+				FE1DA2AEBCAFB8801CDD1E60 /* Components.swift in Sources */,
+				471B11ED6F38770EA96D0A5A /* HistoryView.swift in Sources */,
+				5F075657E284BD457D6CBBFF /* NearbyPairing.swift in Sources */,
+				0F4CE1CD1F227D260B175066 /* NearbyViews.swift in Sources */,
+				8FC9E81A072B62DDFE058094 /* PairingViews.swift in Sources */,
+				86A66AC9734292D7A79288A0 /* Pasteboard.swift in Sources */,
+				320AEDCBC4F4CCBEB549469A /* PermissionsCard.swift in Sources */,
+				F209FFB8FF36038BEB05853F /* RelayClient.swift in Sources */,
+				C5F21FDEB411118E45DAC3B2 /* RescueKit.swift in Sources */,
+				46D941C7AB77CB953A223B36 /* SettingsView.swift in Sources */,
+				69439A46BAAA266EEDC7175A /* Snapshots.swift in Sources */,
+				0716752C262951D97BDDEC86 /* StatusItem.swift in Sources */,
+				2211040CE5E52A33B5097B2D /* System.swift in Sources */,
+				F16E40AAE3E9678F4454E506 /* Tokens.swift in Sources */,
+				5E0B93AA59E155B7F335A87B /* WindowRouter.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		6469DA1C2DB75D5785E69C9B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 5;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.3.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		74BE8B87752ED13E2F0A2C67 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Clipway/Clipway.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Clipway/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.sidali.clipway.debug;
+				PRODUCT_NAME = Clipway;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		772771305F8B798E924D46B5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 5;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.3.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		79A0BBF7D34130B4D59E5893 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Clipway/Clipway.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Clipway/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.sidali.clipway;
+				PRODUCT_NAME = Clipway;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6F4C6A939DE7D0B0990825CC /* Build configuration list for PBXProject "Clipway" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6469DA1C2DB75D5785E69C9B /* Debug */,
+				772771305F8B798E924D46B5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CD97DA0E84ED7204C5004D4F /* Build configuration list for PBXNativeTarget "Clipway" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				74BE8B87752ED13E2F0A2C67 /* Debug */,
+				79A0BBF7D34130B4D59E5893 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		7A531766ABA1F69F08EB8717 /* XCLocalSwiftPackageReference "ClipwayCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ClipwayCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D925E780D73195C44FEB66AF /* ClipwayCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ClipwayCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = D385BFF7D67FC38661898736 /* Project object */;
+}
