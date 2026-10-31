@@ -4,7 +4,7 @@ import CoreImage.CIFilterBuiltins
 import LocalAuthentication
 import Security
 import ServiceManagement
-import UserNotifications
+@preconcurrency import UserNotifications
 
 /// The login Keychain (file based, never synced to iCloud): service dev.sidali.clipway (the bundle
 /// id: dev.sidali.clipway.debug for Debug builds, so tests never touch the real key), accounts
