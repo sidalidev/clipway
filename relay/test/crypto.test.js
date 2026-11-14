@@ -91,7 +91,7 @@ test("limits: texts of 64 KiB, heads of 172 x 512 bytes, envelopes of 117 440 ba
   assert.equal(CHUNK_SIZE, V.limits.chunk);
   assert.equal(RELAY_FILE_MAX, V.limits.relay_file);
   assert.equal(PARTS_MAX, V.limits.parts);
-  assert.equal(PARTS_MAX, 65);
+  assert.equal(PARTS_MAX, 97);
   // The largest text with an ordinary name fits, with room to spare.
   const built = buildItem(S, { type: "text", device: { id: "0".repeat(32), name: "x".repeat(64), kind: "mac" }, ts: Date.now(), content: Buffer.alloc(TEXT_MAX, 0x7a) });
   assert.ok(built.envelopes[0].enc.length <= ENC_MAX);
@@ -162,11 +162,11 @@ test("chunked items: exact head and chunks with the fixed nonces, read back, and
   assert.throws(() => readItem(S, [...f, f[3]]), /parts/);
   const other = buildItem(S, { ...V.chunked_file_item.head, item: "0".repeat(32), content: big }).envelopes;
   assert.throws(() => readItem(S, [f[0], other[1], f[2], f[3]]), /authentication/);
-  // The largest item: 64 chunks, each envelope under the relay's limit, all of it under the queue of a chain.
+  // The largest item: 96 chunks, each envelope under the relay's limit, all of it under the queue of a chain.
   const largest = buildItem(S, { type: "chunked", device: V.chunked_file_item.head.device, ts: 1, media: "file", mime: "application/octet-stream", name: "big.bin", content: Buffer.alloc(RELAY_FILE_MAX, 7) });
   assert.equal(largest.envelopes.length, PARTS_MAX);
   assert.ok(largest.envelopes.every((e) => e.enc.length <= ENC_MAX));
-  assert.ok(largest.envelopes.reduce((n, e) => n + e.enc.length, 0) < 6 * 1_048_576);
+  assert.ok(largest.envelopes.reduce((n, e) => n + e.enc.length, 0) < 9 * 1_048_576);
   assert.throws(() => buildItem(S, { type: "chunked", device: V.chunked_file_item.head.device, ts: 1, media: "file", mime: "application/octet-stream", name: "big.bin", content: Buffer.alloc(RELAY_FILE_MAX + 1) }), /too big/);
 });
 
@@ -212,7 +212,7 @@ test("head validation", () => {
   assert.throws(() => validateHead({ ...chunked, chunks: 4 }), /chunks/);
   const { chunks, ...noChunks } = chunked;
   assert.throws(() => validateHead(noChunks), /chunks/);
-  assert.throws(() => validateHead({ ...chunked, size: RELAY_FILE_MAX + 1, chunks: 65 }), /too big/);
+  assert.throws(() => validateHead({ ...chunked, size: RELAY_FILE_MAX + 1, chunks: 97 }), /too big/);
   assert.throws(() => validateHead({ ...chunked, data: "AAAA" }), /chunks/);
   assert.throws(() => validateHead({ ...V.chunked_item.head, mime: "text/plain" }), /image mime/);
 

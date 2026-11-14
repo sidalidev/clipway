@@ -2,7 +2,7 @@
 
 Passes end-to-end encrypted texts between the devices of a sync chain. It cannot read them: it only knows a random chain id, which it computes from the proof each device presents. Items wait 24 hours at most, in memory, for a device that is offline, then they are erased. Nothing is written to disk.
 
-**Texts, and small images and files in encrypted chunks.** Every envelope is at most the size of a 64 KB text. An item is one envelope, or, since 0.4.0, an image or a file of 4 MB at most cut in chunks: up to 65 envelopes, queued only once all of them arrived; an upload left incomplete for 2 minutes, or whose connection closes, is dropped (`incomplete`). More parts or a larger envelope is refused (`too_big`). The relay never sees what is inside, only how many parts an item has. Devices on the same network send images and files directly; the relay then only passes the encrypted offer that tells the other device where to connect ([../docs/PROTOCOL.md](../docs/PROTOCOL.md), sections 14 and 15).
+**Texts, and small images and files in encrypted chunks.** Every envelope is at most the size of a 64 KB text. An item is one envelope, or, since 0.4.0, an image or a file of 6 MB at most cut in chunks: up to 97 envelopes, queued only once all of them arrived; an upload left incomplete for 2 minutes, or whose connection closes, is dropped (`incomplete`). More parts or a larger envelope is refused (`too_big`). The relay never sees what is inside, only how many parts an item has. Devices on the same network send images and files directly; the relay then only passes the encrypted offer that tells the other device where to connect ([../docs/PROTOCOL.md](../docs/PROTOCOL.md), sections 14 and 15).
 
 Specification: [../docs/PROTOCOL.md](../docs/PROTOCOL.md), section 4. License: [AGPL-3.0](LICENSE). One dependency (`ws`), Node 22.
 
@@ -122,7 +122,7 @@ CLIPWAY_RELAY=https://clip.example.org node tools/client.mjs new     # then list
 |---|---|---|
 | Frame, both ways | 128 KiB | close 1009 |
 | Item | one part, `enc` of 118 124 characters at most (a 64 KB text, padded and encrypted) | `too_big` |
-| Queue per chain | 50 items, 6 MiB (sum of `enc` lengths), 24 h | oldest evicted first |
+| Queue per chain | 50 items, 9 MiB (sum of `enc` lengths), 24 h | oldest evicted first |
 | Uploads per connection | 4 at once, 1 MiB of ciphertext in progress | `quota` |
 | Upload not completed | 2 minutes | `incomplete` |
 | Uploads per chain | 60 items per minute, 60 MiB per hour | `rate_limited` |
@@ -137,7 +137,7 @@ CLIPWAY_RELAY=https://clip.example.org node tools/client.mjs new     # then list
 ## What the relay sees and keeps
 
 - **Sees**: the chain id it computes from the proof, the time and size of each item, how many devices are connected, and IP addresses while connected. Items are padded to 512 bytes, and an offer looks like a short text.
-- **Carries, encrypted**: texts, and images or files of 4 MB at most in chunks. It sees the number of parts of an item, so roughly the size of an image or a file, never its content, name or type. Larger ones go directly between the devices.
+- **Carries, encrypted**: texts, and images or files of 6 MB at most in chunks. It sees the number of parts of an item, so roughly the size of an image or a file, never its content, name or type. Larger ones go directly between the devices.
 - **Keeps**: complete items, encrypted, in memory, until another device acknowledges them, 24 hours pass, or newer items push them out. An erase (`DELETE /chain`) drops them at once and closes the chain's connections with 4001.
 - **Never sees**: the key, the content, file names in offers, local addresses in offers, device names or device ids: all of that is inside AES-256-GCM envelopes.
 - **Logs**: a counter line every hour (connections, items, bytes, refusals) and errors, with at most the first 6 characters of a chain id. Never an IP address, a proof, a nonce, the size of a given item or any content. Addresses live in memory only, for the per-IP counters.

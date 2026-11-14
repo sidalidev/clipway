@@ -57,7 +57,7 @@ const USAGE = `Clipway test client
   --wait      send: wait until another device acknowledges the item ("Delivered")
   --file      send: an image or a file, directly: this computer listens (--port, any by default) and the
               relay only passes the encrypted offer; waits until the other device fetched it
-  --chunked   send --file: through the relay instead, encrypted and cut in chunks (4 MB at most)
+  --chunked   send --file: through the relay instead, encrypted and cut in chunks (6 MB at most)
   --hosts     send --file: the addresses listed in the offer (default: this computer's private IPv4 ones)
   --loopback  send --file: also list 127.0.0.1; listen: also connect to 127.0.0.1 (tests on one computer)
   --json      one JSON object per line on stdout
@@ -251,7 +251,7 @@ async function cmdSend(type) {
     if (content.length > FILE_MAX) fail("too large: Clipway sends up to 25 MB");
     if (args.chunked) {
       // Through the relay: the head, then the content in encrypted chunks of 64 KiB.
-      if (content.length > RELAY_FILE_MAX) fail("too large for the relay: 4 MB at most, larger files go directly");
+      if (content.length > RELAY_FILE_MAX) fail("too large for the relay: 6 MB at most, larger files go directly");
       input = { type: "chunked", device, ts: Date.now(), media, mime, name: path.basename(args.file), content };
     }
   }

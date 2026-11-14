@@ -120,19 +120,19 @@ class ProtocolTest {
         assertEquals(Protocol.Drop.Parts, dropped(p.take(3)))
         assertEquals(Protocol.Drop.Parts, dropped(p + p[3]))
         assertEquals(Protocol.Drop.Unreadable, dropped(listOf(p[0], other[1], p[2], p[3])))
-        // The largest one: 65 parts, each under the relay's envelope limit; one byte more is refused.
+        // The largest one: 97 parts, each under the relay's envelope limit; one byte more is refused.
         val largest = Protocol.chunked(keys, mac, now, "file", "application/zip", "big.zip", ByteArray(Crypto.RELAY_FILE_MAX))
         assertEquals(v.getJSONObject("limits").getInt("parts"), largest.parts.size)
         assertTrue(largest.parts.all { it.enc.length <= v.getJSONObject("limits").getInt("enc") })
         try {
             Protocol.chunked(keys, mac, now, "file", "application/zip", "big.zip", ByteArray(Crypto.RELAY_FILE_MAX + 1))
-            fail("over 4 MiB accepted")
+            fail("over 6 MiB accepted")
         } catch (e: IllegalArgumentException) {
             // expected
         }
-        // What fits the relay: 4 MiB at most, and only on a relay that takes 65 parts.
-        assertTrue(Protocol.fitsRelay(Crypto.RELAY_FILE_MAX.toLong(), 65))
-        assertFalse(Protocol.fitsRelay(Crypto.RELAY_FILE_MAX + 1L, 65))
+        // What fits the relay: 6 MiB at most, and only on a relay that takes 97 parts.
+        assertTrue(Protocol.fitsRelay(Crypto.RELAY_FILE_MAX.toLong(), 97))
+        assertFalse(Protocol.fitsRelay(Crypto.RELAY_FILE_MAX + 1L, 97))
         assertFalse(Protocol.fitsRelay(100_000, 1))
         assertTrue(Protocol.fitsRelay(0, 1))
         assertEquals(Crypto.CHUNK_SIZE, v.getJSONObject("limits").getInt("chunk"))
@@ -268,7 +268,7 @@ class ProtocolTest {
         bad("""{"v":1,$chunked,"media":"image","mime":"image/png","size":70000}""")
         bad("""{"v":1,$chunked,"media":"image","mime":"text/plain","size":70000,"chunks":2}""")
         bad("""{"v":1,$chunked,"media":"file","mime":"text/plain","size":70000,"chunks":2}""")
-        bad("""{"v":1,$chunked,"media":"image","mime":"image/png","size":4194305,"chunks":65}""")
+        bad("""{"v":1,$chunked,"media":"image","mime":"image/png","size":6291457,"chunks":97}""")
         bad("""{"v":1,$chunked,"media":"image","mime":"image/png","size":1,"chunks":1,"data":"YQ=="}""")
         bad("""{"v":1,$chunked,"media":"image","mime":"image/png","size":1,"chunks":"1"}""")
         val offer = """"type":"offer","item":"00112233445566778899aabbccddeeff",$dev,"ts":1,"size":1,"fp":"$fp""""
@@ -380,7 +380,7 @@ class ProtocolTest {
         val w = Protocol.parseFrame(f.getJSONObject("welcome").toString()) as Protocol.Incoming.Welcome
         assertEquals("5f3a9c0d1e2b4a68", w.epoch)
         assertEquals(2, w.devices)
-        assertEquals(65, w.parts)
+        assertEquals(97, w.parts)
         assertEquals(1, (Protocol.parseFrame("""{"kind":"welcome","v":1,"epoch":"e","devices":1,"limits":{"parts":1}}""") as Protocol.Incoming.Welcome).parts)
         assertEquals(1, (Protocol.parseFrame("""{"kind":"welcome","v":1,"epoch":"e","devices":1}""") as Protocol.Incoming.Welcome).parts)
         assertEquals(42L, (Protocol.parseFrame(f.getJSONObject("synced").toString()) as Protocol.Incoming.Synced).last)

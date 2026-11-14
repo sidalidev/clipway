@@ -50,14 +50,14 @@
     "padded_bytes": 512
   },
   "limits": {
-    "note": "Every envelope is at most the size of a 64 KiB text. Images and files go directly (25 MiB at most, section 14) or through the relay in chunks of 64 KiB (4 MiB at most, section 15: the head, then up to 64 chunks).",
+    "note": "Every envelope is at most the size of a 64 KiB text. Images and files go directly (25 MiB at most, section 14) or through the relay in chunks of 64 KiB (6 MiB at most, section 15: the head, then up to 96 chunks).",
     "text": 65536,
     "head": 88064,
     "enc": 117440,
     "file": 26214400,
     "chunk": 65536,
-    "relay_file": 4194304,
-    "parts": 65
+    "relay_file": 6291456,
+    "parts": 97
   },
   "text_item": {
     "note": "Text copied on the Mac, inline. AAD of the head = chain id. The plaintext is the exact padded JSON string.",
@@ -311,7 +311,7 @@
     "chunks": []
   },
   "refused_heads": {
-    "note": "Envelopes that open, but whose head must be refused (dropped and acknowledged): no image or file inside one envelope (Clipway 0.2), no chunks outside a chunked head, and chunked heads must have the right number of chunks, 4 MiB at most and no data.",
+    "note": "Envelopes that open, but whose head must be refused (dropped and acknowledged): no image or file inside one envelope (Clipway 0.2), no chunks outside a chunked head, and chunked heads must have the right number of chunks, 6 MiB at most and no data.",
     "cases": [
       {
         "why": "image inside an item",
@@ -356,10 +356,10 @@
         }
       },
       {
-        "why": "chunked over 4 MiB",
+        "why": "chunked over 6 MiB",
         "envelope": {
           "nonce": "cacbcccdcecfd0d1d2d3d4d5",
-          "enc": "5yuydA/MCjFsoswQK8kKIAZxvNf41PokNsC6KZqVcaG4LnCr4aeqBSLJIlqXTRkv5oa66z+4nSXYam2X86Vde5X1QAWkt6T21CNKUDPftpoO543PY7umeEAZkgKqA6qSGpoZGXhl1ZyTgIZaqwvPD9WNzHbMAMK0XHEzBjqm2sXWTSQzvYGsKU1dAm8cyOuOyEk8TcSBGmCVMyGYTsKSLs748nhVndwHjNwcRb6newVEvc5pau86WymehBxKtvoDwbigwpVRKObTgUOGy+ziTHZ5LUu8Rn7098ECySDdCjmeVZS0uUMLZAR4N2hGGZZOfRQ718q/8VpVX+AO4UMK2OEID29D2kvgZQujhXzl7vAjE3ChQ6bktIulEpLLX3e5EtmC2mAqOL8flYMpzPE6iIIfmJJmzQ76LkLUDRAnNuNG8A6LoQHw8sDzdS+p5AcekNVdX+lpY9qJ5RA0E2HzHYImJNnZmmBlMTQblrxvLYA6IJZv/oaQwyUTIH2hn0RrlwCxtyjAlQJ4itgRgxO35ExB1SH45984y9Z0WYBTSqNz4CA9Fn8AZv/Jw71lEyyWF4BYjG730C8fTakmRZizgTvsCvzrhzEBJ4QAPMfT2ad6Bq6nNYEyFTO/XlKEsmDiePTI+kYpoLeKynCl8Y/5LapNQY2OOgmPPiboVCiSBoVEXp+LjAlM4y32PG8MZdR6"
+          "enc": "5yuydA/MCjFsoswQK8kKIAZxvNf41PokNsC6KZqVcaG4LnCr4aeqBSLJIlqXTRkv5oa66z+4nSXYam2X86Vde5X1QAWkt6T21CNKUDPftpoO543PY7umeEAZkgKqA6qSGpoZGXhl1ZyTgIZaqwvPD9WNzHbMAMK0XHEzBjqm2sXWTSQzvYGsKU1dAm8cyOuOyEk8TcSBGmCVMyGYTsKSLs748nhVndwHjNwcRb6newVEvc5pau86WymehBxKtvoDwbigwpVRKObTgUOGy+ziTHZ5LUu8Rn7098ECySDdCjmeVZS0uUMLZAR4N2hGGZZOfRQ718i88V9SWuIO4UMK2OEID29D2kvgZQujhXzl7vAjE3ChQ6bktIulEpLLX3e5EtmC2mAqOL8flYMpzPE6iIIfmJJmzQ76LkLUDRAnNuNG8A6LoQHw8sDzdS+p5AcekNVdX+lpY9qJ5RA0E2HzHYImJNnZmmBlMTQblrxvLYA6IJZv/oaQwyUTIH2hn0RrlwCxtyjAlQJ4itgRgxO35ExB1SH45984y9Z0WYBTSqNz4CA9Fn8AZv/Jw71lEyyWF4BYjG730C8fTakmRZizgTvsCvzrhzEBJ4QAPMfT2ad6Bq6nNYEyFTO/XlKEsmDiePTI+kYpoLeKynCl8Y/5LapNQY2OOgmPPiboVCiSBoUOw9ZMmFEDlVdi86e9UfKe"
         }
       },
       {
@@ -395,11 +395,11 @@
       "devices": 2,
       "limits": {
         "frame": 131072,
-        "parts": 65,
+        "parts": 97,
         "text": 65536,
         "enc": 117440,
         "items": 50,
-        "bytes": 6291456,
+        "bytes": 9437184,
         "ttl": 86400000
       }
     },
@@ -470,7 +470,7 @@
       "kind": "error",
       "ref": 7,
       "code": "too_big",
-      "message": "this relay carries texts of 64 KB and images or files of 4 MB at most: larger ones go directly between your devices"
+      "message": "this relay carries texts of 64 KB and images or files of 6 MB at most: larger ones go directly between your devices"
     }
   },
   "direct": {

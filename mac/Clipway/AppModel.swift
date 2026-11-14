@@ -431,7 +431,7 @@ final class AppModel {
             }
             send(type: .text, content: bytes, mime: Head.textMime, automatic: true)
         case let .image(type):
-            // An offline phone gets the image from the relay later (4 MB at most); an old relay
+            // An offline phone gets the image from the relay later (6 MB at most); an old relay
             // only passes offers, which last 2 minutes, so then only while the phone is connected.
             guard link == .connected || (engine?.relayParts ?? 1) > 1 else {
                 show("Image not sent: your phone is offline, and images go straight to it")
@@ -465,7 +465,7 @@ final class AppModel {
         let item = ClipwayCrypto.randomId()
         let device = me
         // Images and files: directly first, when the phone is online and this Mac on a local network
-        // (only an offer goes through the relay); through the relay in encrypted chunks (4 MB at most)
+        // (only an offer goes through the relay); through the relay in encrypted chunks (6 MB at most)
         // when the phone is offline, elsewhere, or cannot reach this Mac.
         var port = 0
         var hosts: [String] = []
@@ -493,7 +493,7 @@ final class AppModel {
                 relayed = true
             } else {
                 show(local.isEmpty && content.count > ClipwayCrypto.relayFileMax && engine.relayParts > 1
-                    ? "Not sent: over 4 MB, connect to the same Wi-Fi as your phone"
+                    ? "Not sent: over 6 MB, connect to the same Wi-Fi as your phone"
                     : "Not sent: connect to the same Wi-Fi as your phone")
                 return
             }
@@ -549,7 +549,7 @@ final class AppModel {
     }
 
     /// The end of a direct transfer this Mac offered (section 14.5). If the phone could not reach
-    /// it or did not answer, a content of 4 MB at most goes through the relay instead (section 15).
+    /// it or did not answer, a content of 6 MB at most goes through the relay instead (section 15).
     private func directOutcome(_ item: String, _ outcome: Direct.Outcome) {
         let fallback = fallbacks.removeValue(forKey: item)
         if let fallback, outcome != .done, outcome != .declined, link != .erasedElsewhere, isPaired {
@@ -680,7 +680,7 @@ final class AppModel {
     private func fetched(_ head: Head, label: String, result: Direct.Fetched) {
         let from = head.device.name
         let status: String
-        // A 0.4 sender sends a content of 4 MB at most through the relay instead: nothing to say yet.
+        // A 0.4 sender sends a content of 6 MB at most through the relay instead: nothing to say yet.
         let comesByRelay = (head.size ?? 0) <= ClipwayCrypto.relayFileMax && (engine?.relayParts ?? 1) > 1
         switch result {
         case .ok:

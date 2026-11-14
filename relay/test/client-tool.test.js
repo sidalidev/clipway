@@ -127,10 +127,10 @@ test("send --chunked: a photo through the relay, in encrypted chunks, without an
   assert.ok(readFileSync(item.saved).equals(content));
 
   const big = path.join(dir, "big.bin");
-  writeFileSync(big, Buffer.alloc(4_194_305));
+  writeFileSync(big, Buffer.alloc(6_291_457));
   const refused = await run(["send", "--key", key, "--file", big, "--chunked"]);
   assert.equal(refused.code, 1);
-  assert.match(refused.stderr, /4 MB at most/);
+  assert.match(refused.stderr, /6 MB at most/);
 });
 
 test("send waits for another device; listen ignores its own device's items; hello and erase", async (t) => {

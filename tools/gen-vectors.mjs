@@ -172,7 +172,7 @@ const refusedHeads = [
   ["offer without hosts", padHead(JSON.stringify({ ...offerImage.head, hosts: [] })), "9a9b9c9d9e9fa0a1a2a3a4a5"],
   ["offer with a host name", padHead(JSON.stringify({ ...offerImage.head, hosts: ["mac.local"] })), "aaabacadaeafb0b1b2b3b4b5"],
   ["chunked with the wrong number of chunks", padHead(JSON.stringify({ ...chunkedFile.head, chunks: 2 })), "babbbcbdbebfc0c1c2c3c4c5"],
-  ["chunked over 4 MiB", padHead(JSON.stringify({ ...chunkedFile.head, size: RELAY_FILE_MAX + 1, chunks: 65 })), "cacbcccdcecfd0d1d2d3d4d5"],
+  ["chunked over 6 MiB", padHead(JSON.stringify({ ...chunkedFile.head, size: RELAY_FILE_MAX + 1, chunks: 65 })), "cacbcccdcecfd0d1d2d3d4d5"],
   ["chunked with data", padHead(JSON.stringify({ ...chunkedImage.head, data: PNG.toString("base64") })), "dadbdcdddedfe0e1e2e3e4e5"],
   ["offer with chunks", padHead(JSON.stringify({ ...offerImage.head, chunks: 1 })), "eaebecedeeeff0f1f2f3f4f5"],
 ].map(([why, json, nonce]) => {
@@ -248,7 +248,7 @@ const vectors = {
     padded_bytes: Buffer.byteLength(padHead('{"v":1}'), "utf8"),
   },
   limits: {
-    note: "Every envelope is at most the size of a 64 KiB text. Images and files go directly (25 MiB at most, section 14) or through the relay in chunks of 64 KiB (4 MiB at most, section 15: the head, then up to 64 chunks).",
+    note: "Every envelope is at most the size of a 64 KiB text. Images and files go directly (25 MiB at most, section 14) or through the relay in chunks of 64 KiB (6 MiB at most, section 15: the head, then up to 96 chunks).",
     text: TEXT_MAX,
     head: HEAD_MAX,
     enc: ENC_MAX,
@@ -271,7 +271,7 @@ const vectors = {
   },
   chunked_empty_item: chunkedVector(chunkedEmpty, true),
   refused_heads: {
-    note: "Envelopes that open, but whose head must be refused (dropped and acknowledged): no image or file inside one envelope (Clipway 0.2), no chunks outside a chunked head, and chunked heads must have the right number of chunks, 4 MiB at most and no data.",
+    note: "Envelopes that open, but whose head must be refused (dropped and acknowledged): no image or file inside one envelope (Clipway 0.2), no chunks outside a chunked head, and chunked heads must have the right number of chunks, 6 MiB at most and no data.",
     cases: refusedHeads,
   },
   negative: {
@@ -281,7 +281,7 @@ const vectors = {
   },
   frames: {
     note: "Examples of relay frames (JSON text WebSocket frames). See docs/PROTOCOL.md, Relay.",
-    welcome: { kind: "welcome", v: 1, epoch: "5f3a9c0d1e2b4a68", devices: 2, limits: { frame: 131072, parts: PARTS_MAX, text: TEXT_MAX, enc: ENC_MAX, items: 50, bytes: 6291456, ttl: 86400000 } },
+    welcome: { kind: "welcome", v: 1, epoch: "5f3a9c0d1e2b4a68", devices: 2, limits: { frame: 131072, parts: PARTS_MAX, text: TEXT_MAX, enc: ENC_MAX, items: 50, bytes: 9437184, ttl: 86400000 } },
     sync: { kind: "sync", epoch: "5f3a9c0d1e2b4a68", after: 41 },
     synced: { kind: "synced", last: 42 },
     upload: { kind: "item", ref: 7, part: 0, parts: 1, blob: text.envelope },
@@ -293,7 +293,7 @@ const vectors = {
     ping: { kind: "ping" },
     pong: { kind: "pong" },
     upload_chunked: { kind: "item", ref: 8, part: 1, parts: 2, blob: chunkedImage.built.envelopes[1] },
-    error: { kind: "error", ref: 7, code: "too_big", message: "this relay carries texts of 64 KB and images or files of 4 MB at most: larger ones go directly between your devices" },
+    error: { kind: "error", ref: 7, code: "too_big", message: "this relay carries texts of 64 KB and images or files of 6 MB at most: larger ones go directly between your devices" },
   },
 };
 

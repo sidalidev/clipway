@@ -28,7 +28,7 @@ test("health, well-known files, security headers and 404", async (t) => {
   assert.equal(w.protocol, 1);
   assert.equal(w.status, "ok");
   assert.deepEqual(w.minClient, { android: "0.4.0", mac: "0.4.0" });
-  assert.deepEqual(w.limits, { frame: 131072, parts: 65, text: 65536, enc: 117440, items: 50, bytes: 6291456, ttl: 86400000 });
+  assert.deepEqual(w.limits, { frame: 131072, parts: 97, text: 65536, enc: 117440, items: 50, bytes: 9437184, ttl: 86400000 });
   const sec = await (await fetch(`${r.http}/.well-known/security.txt`)).text();
   assert.match(sec, /^Contact: mailto:/);
   assert.match(sec, /\nExpires: \d{4}-/);

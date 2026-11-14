@@ -98,7 +98,7 @@ class Inbox(private val context: Context) {
             receive(head, head.media ?: "file", content, System.currentTimeMillis())
         }
         Log.i(TAG, "Direct ${head.media}: ${result.javaClass.simpleName}")
-        // A 0.4 sender sends a content of 4 MB at most through the relay instead: nothing to say yet.
+        // A 0.4 sender sends a content of 6 MB at most through the relay instead: nothing to say yet.
         val comesByRelay = Protocol.fitsRelay(head.size, prefs.relayParts)
         when (result) {
             is Direct.Fetched.Ok -> Unit

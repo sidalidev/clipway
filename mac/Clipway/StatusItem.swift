@@ -204,7 +204,7 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSWindowDelegate, NS
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = true
         panel.prompt = "Send"
-        panel.message = "Choose files to send to \(model.peer): up to 25 MB each on the same network, 4 MB otherwise."
+        panel.message = "Choose files to send to \(model.peer): up to 25 MB each on the same network, 6 MB otherwise."
         if panel.runModal() == .OK { model.send(files: panel.urls) }
     }
 

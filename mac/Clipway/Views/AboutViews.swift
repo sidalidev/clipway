@@ -203,7 +203,7 @@ struct WhatLeavesView: View {
                     InfoRow(symbol: "arrow.up.circle", title: "What you copy",
                             detail: "When Send automatically is on: texts up to 64 KB, to the relay \(model.relayHost), end-to-end encrypted: only your devices hold the key.")
                     InfoRow(symbol: "wifi", title: "Images and files",
-                            detail: "On the same network, they go straight from this Mac to your phone, encrypted with a key made for that one transfer: the relay only passes a short encrypted note that tells your phone where to fetch them. Otherwise, up to 4 MB, they go through the relay \(model.relayHost) in encrypted pieces and wait there for your phone, 24 hours at most. Larger ones need the same network.")
+                            detail: "On the same network, they go straight from this Mac to your phone, encrypted with a key made for that one transfer: the relay only passes a short encrypted note that tells your phone where to fetch them. Otherwise, up to 6 MB, they go through the relay \(model.relayHost) in encrypted pieces and wait there for your phone, 24 hours at most. Larger ones need the same network.")
                     InfoRow(symbol: "eye", title: "What the relay sees",
                             detail: "A random chain id, the time and size of each item, how many of your devices are connected, and your IP address while connected. For an image or a file it passes along, it sees the number of pieces, so roughly how large it is. It never sees the content, file names or device names, nor the type of an item.")
                     InfoRow(symbol: "clock", title: "How long",

@@ -9,7 +9,7 @@ import java.util.Base64
  * replies), frames, freshness and duplicates, file names, relay addresses. Pure Kotlin on top of
  * [Crypto] and org.json, so every rule is tested on the JVM against docs/VECTORS.json.
  * Images and files go directly on the local network ([Direct]), or through the relay in
- * encrypted chunks of 64 KiB when they are 4 MiB at most (a chunked item, section 15).
+ * encrypted chunks of 64 KiB when they are 6 MiB at most (a chunked item, section 15).
  */
 object Protocol {
 
@@ -18,7 +18,7 @@ object Protocol {
     const val DEVICE_NAME_MAX = 64
     const val NAME_MAX = 255
     const val FILE_NAME_KEEP = 120
-    /** Most parts of an item: one envelope, or the head and up to 64 chunks of a chunked item. */
+    /** Most parts of an item: one envelope, or the head and up to 96 chunks of a chunked item. */
     const val PARTS_MAX = Crypto.PARTS_MAX
     const val FRAME_MAX = 131_072
     const val HOSTS_MAX = 8
@@ -104,7 +104,7 @@ object Protocol {
     /** Largest content for a type: a text (64 KiB), or an image or a file sent directly (25 MiB). */
     fun maxSize(type: String): Long = if (type == "text") Crypto.TEXT_MAX.toLong() else Crypto.FILE_MAX.toLong()
 
-    /** True when an image or a file can go through the relay: 4 MiB at most, and a relay that takes its parts. */
+    /** True when an image or a file can go through the relay: 6 MiB at most, and a relay that takes its parts. */
     fun fitsRelay(size: Long, relayParts: Int): Boolean =
         size <= Crypto.RELAY_FILE_MAX && 1 + Crypto.chunkCount(size) <= minOf(relayParts, PARTS_MAX)
 
@@ -349,7 +349,7 @@ object Protocol {
     )
 
     /**
-     * An image or a file of 4 MiB at most sent through the relay (section 15): the padded head
+     * An image or a file of 6 MiB at most sent through the relay (section 15): the padded head
      * (AAD = chain id), then one envelope per 64 KiB chunk (AAD = clipway-chunk|chain|item|index|count).
      * [nonces]: fixed nonces for every part, the head first (tests and vectors only).
      */

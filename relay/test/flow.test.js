@@ -66,7 +66,7 @@ test("a text goes from the Mac to the phone, end to end; the relay only sees an 
   phone.ws.close();
 });
 
-test("the largest text passes in one envelope; more than 65 parts or a larger envelope is refused", async (t) => {
+test("the largest text passes in one envelope; more than 97 parts or a larger envelope is refused", async (t) => {
   const r = await relay(t);
   const k = chainKeys();
   const mac = await connect(r, k);
@@ -77,9 +77,9 @@ test("the largest text passes in one envelope; more than 65 parts or a larger en
   const sent = await sendText(mac, k, largest, 1);
   assert.ok(sent.envelopes[0].enc.length <= ENC_MAX);
   assert.equal((await receiveItem(phone, k)).content.toString(), largest);
-  // An item in 66 parts: too big, and nothing reaches the phone.
+  // An item in 98 parts: too big, and nothing reaches the phone.
   const offer = buildItem(k.S, { type: "text", device: device(), ts: Date.now(), content: Buffer.from("part") });
-  mac.send({ kind: "item", ref: 2, part: 0, parts: 66, blob: offer.envelopes[0] });
+  mac.send({ kind: "item", ref: 2, part: 0, parts: 98, blob: offer.envelopes[0] });
   const e = await mac.next("error");
   assert.deepEqual([e.ref, e.code], [2, "too_big"]);
   assert.match(e.message, /larger ones go directly/);
@@ -93,7 +93,7 @@ test("the largest text passes in one envelope; more than 65 parts or a larger en
   phone.ws.close();
 });
 
-test("a 4 MiB photo goes through the relay in 65 encrypted parts; the relay sees only ciphertext", async (t) => {
+test("a 6 MiB photo goes through the relay in 97 encrypted parts; the relay sees only ciphertext", async (t) => {
   const r = await relay(t);
   const k = chainKeys();
   const phone = await connect(r, k);
@@ -103,15 +103,15 @@ test("a 4 MiB photo goes through the relay in 65 encrypted parts; the relay sees
   // A JPEG marker in the clear would show if the relay saw content.
   content.write("JFIF-marker-IMG_0042", 0);
   const sent = upload(phone, k, { type: "chunked", device: device("Pixel", "android"), media: "image", mime: "image/jpeg", name: "IMG_0042.jpg", content }, 1);
-  assert.equal(sent.envelopes.length, 65);
+  assert.equal(sent.envelopes.length, 97);
   assert.ok(sent.envelopes.every((b) => b.enc.length <= ENC_MAX));
   await phone.next("stored");
   const h = await r.health();
   assert.equal(h.items, 1);
-  assert.ok(h.bytes < 6 * MIB);
+  assert.ok(h.bytes < 9 * MIB);
   const got = await receiveItem(mac, k);
-  assert.equal(got.frames.length, 65);
-  assert.deepEqual([got.head.type, got.head.media, got.head.name, got.head.chunks], ["chunked", "image", "IMG_0042.jpg", 64]);
+  assert.equal(got.frames.length, 97);
+  assert.deepEqual([got.head.type, got.head.media, got.head.name, got.head.chunks], ["chunked", "image", "IMG_0042.jpg", 96]);
   assert.ok(got.content.equals(content));
   const wire = JSON.stringify(got.frames);
   assert.equal(wire.includes("IMG_0042"), false);

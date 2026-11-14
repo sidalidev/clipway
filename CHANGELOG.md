@@ -6,20 +6,21 @@ Notes for people. The technical details live in the commit history and [docs/PRO
 
 **New**
 
-- Images and files from anywhere. When your phone and your Mac are not on the same network, or the other one is offline, an image or a file of 4 MB at most now goes through the relay, end-to-end encrypted and cut in pieces of 64 KB, and waits there for your other device, 24 hours at most, like a text. A photo shared from the phone on mobile data reaches the Mac.
+- Images and files from anywhere. When your phone and your Mac are not on the same network, or the other one is offline, an image or a file of 6 MB at most now goes through the relay, end-to-end encrypted and cut in pieces of 64 KB, and waits there for your other device, 24 hours at most, like a text. A photo shared from the phone on mobile data reaches the Mac.
 - Directly first. On the same network, images and files still go straight from one device to the other, and the relay only passes a short encrypted note. If the other device cannot fetch it, the app sends it through the relay instead, by itself.
 - On the Mac, an image copied while the phone is offline is sent through the relay, and the phone gets it when it comes back.
 
 **Improved**
 
-- The relay only keeps an image or a file once all its pieces arrived: one left incomplete for 2 minutes, or cut off by a lost connection, is dropped. Its limits do not change: 6 MB and 24 hours per chain, in memory only.
+- The relay only keeps an image or a file once all its pieces arrived: one left incomplete for 2 minutes, or cut off by a lost connection, is dropped. The queue of a chain grows from 6 MB to 9 MB, so that a 6 MB photo fits; items still wait 24 hours at most, in memory only, and the other quotas do not change.
+- On Android, the share menu entry is now called Clipway, so it is easy to find next to the app's icon. The tile and the text selection menu keep "Send to Mac".
 - What leaves your device, the privacy policy and the threat model say when images and files go through the relay, and what it can see: how many pieces they have, so roughly how large they are, never what is inside.
 - The protocol (docs/PROTOCOL.md, section 15) and the shared test vectors describe these chunked items; the relay, the phone and the Mac are tested against the same vectors.
 
 **Known problems**
 
 - Clipway 0.3 apps cannot read images and files sent through a 0.4 relay. The relay asks them to update; update both apps. 0.4 apps keep working with a 0.3 relay, images and files then only go directly.
-- Files over 4 MB still need the same network.
+- Files over 6 MB still need the same network.
 - Not yet tested between a real phone and a Mac through the relay.
 
 ## 0.3.0

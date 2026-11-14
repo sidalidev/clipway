@@ -19,9 +19,9 @@ public enum ClipwayCrypto {
     public static let fileMax = 26_214_400
     /// Content bytes in each chunk of an image or a file sent through the relay (section 15).
     public static let chunkSize = 65_536
-    /// Largest image or file sent through the relay: 4 MiB, 64 chunks.
-    public static let relayFileMax = 4_194_304
-    /// Most parts of one item: the head, then up to 64 chunks.
+    /// Largest image or file sent through the relay: 6 MiB, 96 chunks.
+    public static let relayFileMax = 6_291_456
+    /// Most parts of one item: the head, then up to 96 chunks.
     public static let partsMax = relayFileMax / chunkSize + 1
 
     /// Number of chunks of a content sent through the relay: ceil(size / 64 KiB).

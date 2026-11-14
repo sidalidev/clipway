@@ -64,7 +64,7 @@ public enum ItemCodec {
         return try seal(keys: keys, head: head, nonce: nonce)
     }
 
-    /// An image or a file of 4 MiB at most sent through the relay (section 15): the padded head
+    /// An image or a file of 6 MiB at most sent through the relay (section 15): the padded head
     /// (AAD = chain id), then one envelope per 64 KiB chunk (AAD = clipway-chunk|chain|item|index|count).
     /// nonces: fixed nonces for every part, the head first (test vectors only).
     public static func chunked(

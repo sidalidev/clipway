@@ -91,7 +91,7 @@ object Sender {
      * An image or a file. Directly first (section 14) when the Mac is online and this phone is on a
      * local network: nothing goes to the relay but a short offer. If the Mac cannot fetch it (another
      * network, a guest Wi-Fi), or when the Mac is offline or the phone on mobile data, it goes
-     * through the relay in encrypted chunks (section 15), 4 MB at most. Larger ones only go directly.
+     * through the relay in encrypted chunks (section 15), 6 MB at most. Larger ones only go directly.
      */
     private fun media(c: Context, o: Outgoing, keys: Protocol.Keys, device: Protocol.Device, item: String, fp: String, now: Long): Result {
         val relayOk = Protocol.fitsRelay(o.content.size.toLong(), Prefs(c).relayParts)

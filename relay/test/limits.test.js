@@ -8,17 +8,17 @@ import { relay, client, chainKeys, connect, device, upload, sendText, fakeBlob, 
 
 test("default limits match the protocol", () => {
   assert.equal(LIMITS.frame, 128 * 1024);
-  assert.equal(LIMITS.parts, 65);
+  assert.equal(LIMITS.parts, 97);
   assert.equal(LIMITS.text, 65_536);
   assert.equal(LIMITS.enc, 117_440);
   assert.equal(LIMITS.items, 50);
-  assert.equal(LIMITS.bytes, 6 * MIB);
+  assert.equal(LIMITS.bytes, 9 * MIB);
   assert.equal(LIMITS.ttl, 24 * 3_600_000);
   assert.equal(LIMITS.devices, 8);
   assert.equal(LIMITS.itemsPerMinute, 60);
   assert.equal(LIMITS.bytesPerHour, 60 * MIB);
   assert.equal(LIMITS.uploads, 4);
-  assert.equal(LIMITS.uploadBytes, 6 * MIB);
+  assert.equal(LIMITS.uploadBytes, 9 * MIB);
   assert.equal(LIMITS.uploadTimeout, 120_000);
   assert.equal(LIMITS.requestsPerMinute, 60);
   assert.equal(LIMITS.connectionsPerIp, 20);
@@ -40,7 +40,7 @@ test("a chain keeps its 50 newest items: the oldest are evicted", async (t) => {
   phone.ws.close();
 });
 
-test("a chain keeps 6 MiB at most (here 1500 bytes): the oldest are evicted, a larger item is too big", async (t) => {
+test("a chain keeps 9 MiB at most (here 1500 bytes): the oldest are evicted, a larger item is too big", async (t) => {
   const r = await relay(t, { limits: { bytes: 1500 } });
   const k = chainKeys();
   const mac = await connect(r, k);
@@ -57,12 +57,12 @@ test("a chain keeps 6 MiB at most (here 1500 bytes): the oldest are evicted, a l
   phone.ws.close();
 });
 
-test("an item in more than 65 parts, or an envelope larger than a 64 KiB text, is too big", async (t) => {
+test("an item in more than 97 parts, or an envelope larger than a 64 KiB text, is too big", async (t) => {
   const r = await relay(t);
   const k = chainKeys();
   const mac = await connect(r, k);
-  const tooBig = "this relay carries texts of 64 KB and images or files of 4 MB at most: larger ones go directly between your devices";
-  for (const [ref, parts] of [[1, 66], [2, 100], [3, 401]]) {
+  const tooBig = "this relay carries texts of 64 KB and images or files of 6 MB at most: larger ones go directly between your devices";
+  for (const [ref, parts] of [[1, 98], [2, 200], [3, 401]]) {
     mac.send({ kind: "item", ref, part: 0, parts, blob: fakeBlob() });
     assert.deepEqual(await mac.next("error"), { kind: "error", ref, code: "too_big", message: tooBig });
   }
@@ -176,7 +176,7 @@ test("items per minute and bytes per hour of a chain are rate limited", async (t
   mac2.ws.close();
 });
 
-test("4 uploads in progress and 6 MiB in progress per connection (quota)", async (t) => {
+test("4 uploads in progress and 9 MiB in progress per connection (quota)", async (t) => {
   const r = await relay(t, { limits: { uploads: 2 } });
   const k = chainKeys();
   const mac = await connect(r, k);

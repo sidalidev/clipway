@@ -30,10 +30,10 @@ export const FILE_MAX = 26_214_400;
 /** Content bytes in each chunk of an image or a file sent through the relay (section 15), the last one shorter. */
 export const CHUNK_SIZE = 65_536;
 /**
- * Largest image or file sent through the relay, cut in chunks (section 15): 4 MiB, 64 chunks. Its
- * envelopes take 64 x 87 404 base64 characters plus the head, under the 6 MiB queue of a chain.
+ * Largest image or file sent through the relay, cut in chunks (section 15): 6 MiB, 96 chunks. Its
+ * envelopes take 96 x 87 404 base64 characters plus the head, under the 9 MiB queue of a chain.
  */
-export const RELAY_FILE_MAX = 4_194_304;
+export const RELAY_FILE_MAX = 6_291_456;
 /** Most chunks of one item, and most parts (the head, then the chunks). */
 export const CHUNKS_MAX = RELAY_FILE_MAX / CHUNK_SIZE;
 export const PARTS_MAX = CHUNKS_MAX + 1;
@@ -365,7 +365,7 @@ export function chunkAad(chainId, item, index, chunks) {
  *   text:    content (Buffer, UTF-8, at most 64 KiB)
  *   offer:   media, mime, name?, content (Buffer: only its size and fingerprint go in the offer), port, hosts
  *   reply:   offer, status
- *   chunked: media, mime, name?, content (Buffer, at most 4 MiB): the head, then one envelope per chunk
+ *   chunked: media, mime, name?, content (Buffer, at most 6 MiB): the head, then one envelope per chunk
  * options.nonce: a fixed nonce for the head; options.nonces: fixed nonces for every part, the head
  * first (tests and vectors only).
  * Returns { head, headJson, envelopes } (one envelope, or 1 + chunks for a chunked item).

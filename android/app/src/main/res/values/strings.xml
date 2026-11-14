@@ -166,7 +166,7 @@
     <string name="power_paused_detail">Nothing is sent or received. What %1$s sends waits on the relay for 24 hours at most.</string>
     <string name="paused_toast">Clipway is paused. Turn it on in Clipway to send.</string>
     <string name="process_text_label">Send to Mac</string>
-    <string name="share_label">Send to Mac</string>
+    <string name="share_label">Clipway</string>
     <string name="sent_to">Sent to %1$s</string>
     <plurals name="sent_many">
         <item quantity="one">%1$d item sent to %2$s</item>
@@ -180,7 +180,7 @@
     <string name="too_long">Too long: Clipway sends texts up to 64 KB</string>
     <string name="sending_directly">Sending directly to %1$s</string>
     <string name="no_local_network">Not sent: connect to the same Wi-Fi as your Mac</string>
-    <string name="too_large_for_relay">Not sent: over 4 MB, connect to the same Wi-Fi as your Mac</string>
+    <string name="too_large_for_relay">Not sent: over 6 MB, connect to the same Wi-Fi as your Mac</string>
     <string name="already_sent">Already sent</string>
 
     <!-- Receiving -->
@@ -304,7 +304,7 @@
     <string name="leaves_sent_title">What you send</string>
     <string name="leaves_sent_body">Texts you send with the tile, Send to Mac in the text menu, the share menu or Send clipboard, 64 KB at most. Never on their own: Android does not let apps read the clipboard in the background. Sent to the relay %1$s, end-to-end encrypted, with this phone\'s name inside.</string>
     <string name="leaves_direct_title">Images and files</string>
-    <string name="leaves_direct_body">On the same network, they go straight from this phone to your Mac, encrypted with a key made for that one transfer: the relay only passes a short encrypted note that tells your Mac where to fetch them. Otherwise, up to 4 MB, they go through the relay %1$s in encrypted pieces and wait there for your Mac, 24 hours at most. Larger ones need the same network.</string>
+    <string name="leaves_direct_body">On the same network, they go straight from this phone to your Mac, encrypted with a key made for that one transfer: the relay only passes a short encrypted note that tells your Mac where to fetch them. Otherwise, up to 6 MB, they go through the relay %1$s in encrypted pieces and wait there for your Mac, 24 hours at most. Larger ones need the same network.</string>
     <string name="leaves_received_title">What your Mac sends</string>
     <string name="leaves_received_body">Texts come from the relay %1$s, end-to-end encrypted. Images and files come straight from your Mac over your local network, or through the relay in encrypted pieces when that is not possible. Only your devices hold the key.</string>
     <string name="leaves_relay_title">What the relay sees</string>
