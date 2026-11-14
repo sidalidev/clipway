@@ -86,6 +86,57 @@ final class ItemTests: XCTestCase {
     }
 
     /// Images and files inside items (Clipway 0.2), chunks and too long a text are refused.
+    /// Images and files through the relay: the head and its chunks byte for byte, read back, and
+    /// refused when chunks are swapped, missing, extra or from another item.
+    func testChunkedItemsFromVectors() throws {
+        let big = Data((0..<150_000).map { UInt8($0 % 251) })
+        let pngChunk = obj("chunked_item")["chunks"] as! [[String: Any]]
+        let pngEnvelope = obj("envelope", in: pngChunk[0])
+        let png = try C.open(key: keys.enc, aad: pngChunk[0]["aad"] as! String,
+                             envelope: C.Envelope(nonce: pngEnvelope["nonce"] as! String, enc: pngEnvelope["enc"] as! String))
+        for (name, content) in [("chunked_item", png), ("chunked_file_item", big), ("chunked_empty_item", Data())] {
+            let vector = obj(name)
+            let h = obj("head", in: vector)
+            let chunks = vector["chunks"] as! [[String: Any]]
+            XCTAssertEqual(h["chunks"] as? Int, C.chunkCount(content.count), name)
+            XCTAssertEqual(chunks.count, C.chunkCount(content.count), name)
+            let nonces = [try C.fromHex(envelope(vector).nonce)] + (try chunks.map { try C.fromHex($0["nonce"] as! String) })
+            let built = try ItemCodec.chunked(
+                keys: keys, item: h["item"] as! String, device: device(h["device"] as! [String: Any]), ts: (h["ts"] as! NSNumber).int64Value,
+                media: ItemType(rawValue: h["media"] as! String)!, mime: h["mime"] as! String, name: h["name"] as? String,
+                content: content, nonces: nonces)
+            XCTAssertEqual(try built.head.serialized(), vector["plaintext"] as! String, name)
+            XCTAssertEqual(built.envelopes.first, envelope(vector), name)
+            XCTAssertEqual(built.envelopes.count, 1 + chunks.count, name)
+            for (i, c) in chunks.enumerated() {
+                XCTAssertEqual(C.chunkAad(chainId: keys.id, item: h["item"] as! String, index: i, chunks: chunks.count), c["aad"] as! String)
+                let sha = SHA256.hash(data: Data(built.envelopes[i + 1].enc.utf8)).map { String(format: "%02x", $0) }.joined()
+                XCTAssertEqual(sha, c["enc_sha256"] as! String, "\(name) chunk \(i)")
+                if let e = c["envelope"] as? [String: Any] {
+                    XCTAssertEqual(built.envelopes[i + 1], C.Envelope(nonce: e["nonce"] as! String, enc: e["enc"] as! String))
+                }
+            }
+            let read = try ItemCodec.read(keys: keys, envelopes: built.envelopes)
+            XCTAssertEqual(read.head, built.head, name)
+            XCTAssertEqual(read.content, content, name)
+        }
+        let me = Device(id: C.randomId(), name: "Mac", kind: .mac)
+        let p = try ItemCodec.chunked(keys: keys, device: me, ts: 1, media: .file, mime: "application/octet-stream", name: "b.bin", content: big).envelopes
+        let other = try ItemCodec.chunked(keys: keys, device: me, ts: 1, media: .file, mime: "application/octet-stream", name: "b.bin", content: big).envelopes
+        XCTAssertThrowsError(try ItemCodec.read(keys: keys, envelopes: [p[0], p[2], p[1], p[3]]))
+        XCTAssertThrowsError(try ItemCodec.read(keys: keys, envelopes: Array(p.prefix(3))))
+        XCTAssertThrowsError(try ItemCodec.read(keys: keys, envelopes: p + [p[3]]))
+        XCTAssertThrowsError(try ItemCodec.read(keys: keys, envelopes: [p[0], other[1], p[2], p[3]]))
+        // The largest one: 65 parts under the relay's envelope limit; one byte more is refused.
+        let largest = try ItemCodec.chunked(keys: keys, device: me, ts: 1, media: .file, mime: "application/zip", name: "z.zip", content: Data(count: C.relayFileMax))
+        XCTAssertEqual(largest.envelopes.count, obj("limits")["parts"] as! Int)
+        XCTAssertTrue(largest.envelopes.allSatisfy { $0.enc.count <= obj("limits")["enc"] as! Int })
+        XCTAssertThrowsError(try ItemCodec.chunked(keys: keys, device: me, ts: 1, media: .file, mime: "application/zip", name: "z.zip", content: Data(count: C.relayFileMax + 1)))
+        XCTAssertEqual(C.chunkSize, obj("limits")["chunk"] as! Int)
+        XCTAssertEqual(C.relayFileMax, obj("limits")["relay_file"] as! Int)
+        XCTAssertEqual(C.partsMax, obj("limits")["parts"] as! Int)
+    }
+
     func testRefusedHeads() throws {
         for c in obj("refused_heads")["cases"] as! [[String: Any]] {
             let e = obj("envelope", in: c)
@@ -152,6 +203,15 @@ final class ItemTests: XCTestCase {
         refuses("{\"v\":1,\(offer),\"media\":\"image\",\"mime\":\"image/png\",\"port\":1,\"hosts\":[\"mac.local\"]}")
         refuses("{\"v\":1,\(offer),\"media\":\"image\",\"mime\":\"image/png\",\"port\":1,\"hosts\":[\"10.0.0.01\"]}")
         refuses("{\"v\":1,\(offer),\"media\":\"image\",\"mime\":\"image/png\",\"port\":1,\"hosts\":[\"10.0.0.1\"],\"data\":\"YQ==\"}")
+        refuses("{\"v\":1,\(offer),\"media\":\"image\",\"mime\":\"image/png\",\"port\":1,\"hosts\":[\"10.0.0.1\"],\"chunks\":1}")
+        let chunked = "\"type\":\"chunked\",\(item),\(dev),\"ts\":1,\(fp)"
+        XCTAssertEqual(try Head.parse(Data("{\"v\":1,\(chunked),\"media\":\"image\",\"mime\":\"image/png\",\"size\":70000,\"chunks\":2}".utf8)).chunks, 2)
+        refuses("{\"v\":1,\(chunked),\"media\":\"image\",\"mime\":\"image/png\",\"size\":70000,\"chunks\":1}")
+        refuses("{\"v\":1,\(chunked),\"media\":\"image\",\"mime\":\"image/png\",\"size\":70000}")
+        refuses("{\"v\":1,\(chunked),\"media\":\"image\",\"mime\":\"text/plain\",\"size\":70000,\"chunks\":2}")
+        refuses("{\"v\":1,\(chunked),\"media\":\"file\",\"mime\":\"text/plain\",\"size\":70000,\"chunks\":2}")
+        refuses("{\"v\":1,\(chunked),\"media\":\"image\",\"mime\":\"image/png\",\"size\":4194305,\"chunks\":65}")
+        refuses("{\"v\":1,\(chunked),\"media\":\"image\",\"mime\":\"image/png\",\"size\":1,\"chunks\":1,\"data\":\"YQ==\"}")
         refuses("{\"v\":1,\"type\":\"reply\",\(item),\(dev),\"ts\":1,\"offer\":\"00112233445566778899aabbccddeeff\",\"status\":\"maybe\"}")
         refuses("not json")
     }
@@ -159,7 +219,8 @@ final class ItemTests: XCTestCase {
     func testFrames() throws {
         let f = obj("frames")
         func text(_ key: String) -> String { String(decoding: try! JSONSerialization.data(withJSONObject: f[key]!), as: UTF8.self) }
-        XCTAssertEqual(try RelayFrame.parse(text("welcome")), .welcome(epoch: "5f3a9c0d1e2b4a68", devices: 2))
+        XCTAssertEqual(try RelayFrame.parse(text("welcome")), .welcome(epoch: "5f3a9c0d1e2b4a68", devices: 2, parts: 65))
+        XCTAssertEqual(try RelayFrame.parse("{\"kind\":\"welcome\",\"epoch\":\"e\",\"devices\":1}"), .welcome(epoch: "e", devices: 1, parts: 1))
         XCTAssertEqual(try RelayFrame.parse(text("synced")), .synced(last: 42))
         XCTAssertEqual(try RelayFrame.parse(text("stored")), .stored(ref: 7, seq: 43))
         XCTAssertEqual(try RelayFrame.parse(text("delivered")), .delivered(seq: 43))
@@ -181,5 +242,7 @@ final class ItemTests: XCTestCase {
         same(RelayFrame.ping, "ping")
         let up = obj("blob", in: obj("upload", in: f))
         same(RelayFrame.upload(ref: 7, part: 0, parts: 1, blob: C.Envelope(nonce: up["nonce"] as! String, enc: up["enc"] as! String)), "upload")
+        let chunk = obj("blob", in: obj("upload_chunked", in: f))
+        same(RelayFrame.upload(ref: 8, part: 1, parts: 2, blob: C.Envelope(nonce: chunk["nonce"] as! String, enc: chunk["enc"] as! String)), "upload_chunked")
     }
 }

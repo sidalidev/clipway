@@ -1,6 +1,6 @@
 # Threat model
 
-Clipway passes the texts you copy between your own devices through a relay that cannot read them. Images and files never go through the relay: they cross the local network directly, encrypted (docs/PROTOCOL.md, section 14). The specification is [docs/PROTOCOL.md](docs/PROTOCOL.md).
+Clipway passes the texts you copy between your own devices through a relay that cannot read them. Images and files cross the local network directly, encrypted, when both devices are on it (docs/PROTOCOL.md, section 14), and otherwise pass through the relay in encrypted chunks, 4 MB at most (section 15). The specification is [docs/PROTOCOL.md](docs/PROTOCOL.md).
 
 **Protected**
 
@@ -19,7 +19,8 @@ Clipway passes the texts you copy between your own devices through a relay that 
 
 **Seen on the local network** (during a direct transfer)
 
-8c. Someone on the same network sees that two devices exchange encrypted data, how much, when, and their local addresses. Without the key they cannot read it, and the sending device gives nothing to a connection that cannot prove it holds the key. A network that isolates its clients, or devices on different networks, stops images and files (texts still go through the relay), and the apps say so.
+8c. Someone on the same network sees that two devices exchange encrypted data, how much, when, and their local addresses. Without the key they cannot read it, and the sending device gives nothing to a connection that cannot prove it holds the key. A network that isolates its clients, or devices on different networks, stops the direct transfer: images and files of 4 MB at most then go through the relay, larger ones are not sent, and the apps say so.
+8d. An image or a file sent through the relay is a chunked item: an encrypted head and encrypted chunks, each bound by its AAD to the chain, the item, its position and the number of chunks, then checked by size and keyed fingerprint before anything is written. The relay sees that an item has several parts and how many, so its size to within 64 KiB, never its content, name or type. It holds it 24 hours at most, in memory, within the 6 MiB of the chain, and drops an upload left incomplete.
 
 **Not protected**
 

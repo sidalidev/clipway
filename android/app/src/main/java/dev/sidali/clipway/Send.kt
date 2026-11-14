@@ -34,9 +34,9 @@ object Sender {
 
     class Outgoing(val type: String, val content: ByteArray, val mime: String? = null, val name: String? = null)
 
-    enum class Result { Sent, Waiting, Direct, NoLocalNetwork, NotPaired, Paused, Empty, Nothing, Sensitive, TooLarge, TooLong, Repeated }
+    enum class Result { Sent, Waiting, Direct, NoLocalNetwork, NotPaired, Paused, Empty, Nothing, Sensitive, TooLarge, TooLargeForRelay, TooLong, Repeated }
 
-    /** Images and files are served from here, on the local network, never through the relay. */
+    /** Images and files are served from here, on the local network, when the Mac can fetch them directly. */
     val direct = Direct.Server(if (BuildConfig.DEBUG) Direct.DEBUG_PORT else 0)
 
     /** The same content sent or received less than 10 s ago is not sent again. */
@@ -63,7 +63,7 @@ object Sender {
         val item = Protocol.newItemId()
         // Started now, while the sending activity is in the foreground: Android allows it.
         if (ClipService.instance == null) ClipService.start(c, ClipService.ACTION_PUMP)
-        if (o.type != "text") return offer(c, o, keys, device, item, fp, now)
+        if (o.type != "text") return media(c, o, keys, device, item, fp, now)
         worker.execute {
             try {
                 val keep = o.type == "text" || o.type == "image"
@@ -88,18 +88,70 @@ object Sender {
     }
 
     /**
-     * An image or a file (docs/PROTOCOL.md, section 14): this phone listens on the local network for
-     * 2 minutes and sends an offer through the relay; the Mac connects and fetches it. The content
-     * never reaches the relay.
+     * An image or a file. Directly first (section 14) when the Mac is online and this phone is on a
+     * local network: nothing goes to the relay but a short offer. If the Mac cannot fetch it (another
+     * network, a guest Wi-Fi), or when the Mac is offline or the phone on mobile data, it goes
+     * through the relay in encrypted chunks (section 15), 4 MB at most. Larger ones only go directly.
      */
-    private fun offer(c: Context, o: Outgoing, keys: Protocol.Keys, device: Protocol.Device, item: String, fp: String, now: Long): Result {
+    private fun media(c: Context, o: Outgoing, keys: Protocol.Keys, device: Protocol.Device, item: String, fp: String, now: Long): Result {
+        val relayOk = Protocol.fitsRelay(o.content.size.toLong(), Prefs(c).relayParts)
         val local = localHosts(c)
+        if (local.isNotEmpty() && (Status.macOnline || !relayOk)) {
+            val r = offer(c, o, keys, device, item, fp, now, local, fallback = relayOk)
+            if (r != Result.NoLocalNetwork || !relayOk) return r
+        }
+        if (relayOk) return relayed(c, o, keys, device, item, fp, now)
+        return if (o.content.size > Crypto.RELAY_FILE_MAX && Prefs(c).relayParts > 1) Result.TooLargeForRelay else Result.NoLocalNetwork
+    }
+
+    /**
+     * Through the relay, cut in encrypted chunks of 64 KiB (docs/PROTOCOL.md, section 15). [history]
+     * is the row it updates: its own, or the row of the direct offer it replaces (then already in history).
+     */
+    private fun relayed(
+        c: Context, o: Outgoing, keys: Protocol.Keys, device: Protocol.Device, item: String, fp: String, now: Long,
+        history: String = item,
+    ): Result {
+        Log.i("ClipwaySender", "Sending through the relay in ${Crypto.chunkCount(o.content.size.toLong())} chunk(s)")
+        worker.execute {
+            try {
+                if (history == item) {
+                    History.add(
+                        c,
+                        History.Entry(
+                            item = item, type = o.type, outgoing = true, device = device.name, ts = now, mime = o.mime,
+                            name = o.name, size = o.content.size.toLong(), status = "sending",
+                        ),
+                        if (o.type == "image") o.content else null,
+                    )
+                } else {
+                    History.update(c, history) { it.copy(status = "sending") }
+                }
+                val built = Protocol.chunked(keys, device, now, o.type, o.mime, o.name, o.content, item)
+                outbox.add(Outbox.Pending(item, "chunked", fp, built.parts, history))
+                ClipService.kick(c)
+            } catch (e: Exception) {
+                Log.w("ClipwaySender", "Not sent: ${e.javaClass.simpleName}")
+                History.update(c, history) { it.copy(status = "failed") }
+            }
+        }
+        return if (Status.macOnline) Result.Sent else Result.Waiting
+    }
+
+    /**
+     * Directly (docs/PROTOCOL.md, section 14): this phone listens on the local network for 2 minutes
+     * and sends an offer through the relay; the Mac connects and fetches it. With [fallback], an offer
+     * the Mac could not fetch goes through the relay instead.
+     */
+    private fun offer(
+        c: Context, o: Outgoing, keys: Protocol.Keys, device: Protocol.Device, item: String, fp: String, now: Long,
+        local: List<String>, fallback: Boolean,
+    ): Result {
         Log.i("ClipwaySender", "Offering on ${local.size} local address(es)")
-        if (local.isEmpty()) return Result.NoLocalNetwork
         // Debug builds also list this computer, reached with `adb forward tcp:7721 tcp:7721`.
         val hosts = ((if (BuildConfig.DEBUG) listOf("127.0.0.1") else emptyList()) + local).take(Protocol.HOSTS_MAX)
         val port = try {
-            direct.offer(item, Direct.transferKey(keys.direct, item), o.content) { outcome -> outcome(c, item, o, outcome) }
+            direct.offer(item, Direct.transferKey(keys.direct, item), o.content) { outcome -> outcome(c, item, o, outcome, fallback) }
         } catch (e: Exception) {
             Log.w("ClipwaySender", "Cannot listen: ${e.javaClass.simpleName}")
             return Result.NoLocalNetwork
@@ -141,16 +193,27 @@ object Sender {
         return (fromNetworks + Direct.localHosts()).filter { Direct.isPrivate(it) }.distinct().take(Protocol.HOSTS_MAX)
     }
 
-    /** The end of a direct transfer: the history row, and a quiet notification when it did not go. */
-    private fun outcome(c: Context, item: String, o: Outgoing, outcome: Direct.Outcome) {
+    /**
+     * The end of a direct transfer: the history row, and a quiet notification when it did not go.
+     * With [fallback], an offer the Mac could not reach, or did not answer, goes through the relay.
+     */
+    private fun outcome(c: Context, item: String, o: Outgoing, outcome: Direct.Outcome, fallback: Boolean) {
+        // An offer nobody fetched does not need to go out any more.
+        outbox.remove(item)
+        val keys = if (fallback) Vault.keys(c) else null
+        if (keys != null && outcome != Direct.Outcome.Done && outcome != Direct.Outcome.Declined && !Prefs(c).chainErased) {
+            Log.i("ClipwaySender", "Direct transfer ${outcome.name.lowercase()}: through the relay instead")
+            val prefs = Prefs(c)
+            val device = Protocol.Device(prefs.deviceId, prefs.deviceName, "android")
+            relayed(c, o, keys, device, Protocol.newItemId(), Crypto.fingerprint(keys.mac, o.content), System.currentTimeMillis(), history = item)
+            return
+        }
         val status = when (outcome) {
             Direct.Outcome.Done -> "delivered"
             Direct.Outcome.Unreachable, Direct.Outcome.Expired -> "unreachable"
             Direct.Outcome.Failed, Direct.Outcome.Declined -> "failed"
         }
         History.update(c, item) { it.copy(status = status) }
-        // An offer nobody fetched does not need to go out any more.
-        outbox.remove(item)
         if (outcome != Direct.Outcome.Done) Notices.notSent(c, o.name ?: c.getString(R.string.an_image_lower), outcome)
     }
 
@@ -271,6 +334,7 @@ object Sender {
             Result.Nothing -> c.getString(R.string.nothing_to_send)
             Result.Sensitive -> c.getString(R.string.not_sent_sensitive)
             Result.TooLarge -> c.getString(R.string.too_large)
+            Result.TooLargeForRelay -> c.getString(R.string.too_large_for_relay)
             Result.Repeated -> c.getString(R.string.already_sent)
         }
     }

@@ -1,16 +1,17 @@
 import Foundation
 
-/// Builds and reads items: one envelope each (docs/PROTOCOL.md, sections 3.1 to 3.3).
+/// Builds and reads items (docs/PROTOCOL.md, sections 3.1 to 3.3 and 15): one envelope each, or
+/// the head and its chunks for an image or a file sent through the relay.
 public enum ItemCodec {
     public struct Built: Sendable {
         public let head: Head
-        /// Always one envelope: the relay refuses anything in parts.
+        /// One envelope, or the head and then the chunks of a chunked item.
         public let envelopes: [ClipwayCrypto.Envelope]
     }
 
     public struct Read: Sendable {
         public let head: Head
-        /// The content of a text; nil for hello, offer and reply.
+        /// The content of a text or a chunked item; nil for hello, offer and reply.
         public let content: Data?
     }
 
@@ -63,6 +64,29 @@ public enum ItemCodec {
         return try seal(keys: keys, head: head, nonce: nonce)
     }
 
+    /// An image or a file of 4 MiB at most sent through the relay (section 15): the padded head
+    /// (AAD = chain id), then one envelope per 64 KiB chunk (AAD = clipway-chunk|chain|item|index|count).
+    /// nonces: fixed nonces for every part, the head first (test vectors only).
+    public static func chunked(
+        keys: ChainKeys, item: String = ClipwayCrypto.randomId(), device: Device, ts: Int64, media: ItemType,
+        mime: String, name: String?, content: Data, nonces: [Data] = []
+    ) throws -> Built {
+        if content.count > ClipwayCrypto.relayFileMax { throw Failure.tooBig }
+        let chunks = ClipwayCrypto.chunkCount(content.count)
+        let head = Head(
+            type: .chunked, item: item, device: device, ts: ts, mime: mime, name: name, size: content.count,
+            fp: keys.fingerprint(content), media: media, chunks: chunks)
+        var envelopes = try seal(keys: keys, head: head, nonce: nonces.first).envelopes
+        envelopes.reserveCapacity(1 + chunks)
+        for i in 0..<chunks {
+            let from = content.startIndex + i * ClipwayCrypto.chunkSize
+            let slice = content[from..<min(content.endIndex, from + ClipwayCrypto.chunkSize)]
+            let aad = ClipwayCrypto.chunkAad(chainId: keys.id, item: item, index: i, chunks: chunks)
+            envelopes.append(try ClipwayCrypto.seal(key: keys.enc, aad: aad, plaintext: Data(slice), nonce: i + 1 < nonces.count ? nonces[i + 1] : nil))
+        }
+        return Built(head: head, envelopes: envelopes)
+    }
+
     /// The answer to an offer that could not be delivered directly.
     public static func reply(
         keys: ChainKeys, item: String = ClipwayCrypto.randomId(), device: Device, ts: Int64, offer: String, status: String,
@@ -71,13 +95,33 @@ public enum ItemCodec {
         try seal(keys: keys, head: Head(type: .reply, item: item, device: device, ts: ts, offer: offer, status: status), nonce: nonce)
     }
 
-    /// Opens an item: exactly one envelope; checks the size and the fingerprint of a text.
+    /// Opens an item: one envelope, or the head and its chunks; checks the size and the fingerprint
+    /// of a text, or of the content put back together from the chunks.
     public static func read(keys: ChainKeys, envelopes: [ClipwayCrypto.Envelope]) throws -> Read {
         guard let first = envelopes.first else { throw Failure.noParts }
-        guard envelopes.count == 1 else { throw Failure.wrongPartCount }
+        guard envelopes.count <= ClipwayCrypto.partsMax else { throw Failure.wrongPartCount }
         let head = try Head.parse(try ClipwayCrypto.open(key: keys.enc, aad: keys.id, envelope: first))
-        guard head.type == .text else { return Read(head: head, content: nil) }
-        let content = Data(base64Encoded: head.data ?? "") ?? Data()
+        let chunks = head.type == .chunked ? head.chunks ?? 0 : 0
+        guard envelopes.count == 1 + chunks else { throw Failure.wrongPartCount }
+        let content: Data
+        switch head.type {
+        case .text:
+            content = Data(base64Encoded: head.data ?? "") ?? Data()
+        case .chunked:
+            let size = head.size ?? 0
+            var joined = Data(capacity: size)
+            for i in 0..<chunks {
+                let aad = ClipwayCrypto.chunkAad(chainId: keys.id, item: head.item, index: i, chunks: chunks)
+                let chunk = try ClipwayCrypto.open(key: keys.enc, aad: aad, envelope: envelopes[i + 1])
+                // Every chunk is full but the last.
+                let expected = i < chunks - 1 ? ClipwayCrypto.chunkSize : size - i * ClipwayCrypto.chunkSize
+                guard chunk.count == expected else { throw Failure.sizeMismatch }
+                joined.append(chunk)
+            }
+            content = joined
+        default:
+            return Read(head: head, content: nil)
+        }
         guard content.count == head.size else { throw Failure.sizeMismatch }
         guard keys.fingerprint(content) == head.fp else { throw Failure.fingerprintMismatch }
         return Read(head: head, content: content)

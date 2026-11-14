@@ -1,12 +1,12 @@
 import Foundation
 
-/// What an item or a history row is. Through the relay, only text, hello, offer and reply travel:
-/// image and file are what an offer stands for, and what history shows.
+/// What an item or a history row is. Through the relay travel text, hello, offer, reply and
+/// chunked: image and file are what an offer or a chunked item stands for, and what history shows.
 public enum ItemType: String, Sendable, Codable, CaseIterable {
-    case text, image, file, hello, offer, reply
+    case text, image, file, hello, offer, reply, chunked
 
     /// Types a head may have (section 3.1).
-    public var travels: Bool { self == .text || self == .hello || self == .offer || self == .reply }
+    public var travels: Bool { self != .image && self != .file }
 }
 
 public enum DeviceKind: String, Sendable, Codable {
@@ -63,11 +63,14 @@ public struct Head: Equatable, Sendable {
     /// reply: the offer it answers, and why.
     public var offer: String?
     public var status: String?
+    /// chunked: how many chunks follow the head.
+    public var chunks: Int?
 
     public init(
         v: Int = ClipwayCrypto.protocolVersion, type: ItemType, item: String, device: Device, ts: Int64,
         mime: String? = nil, name: String? = nil, size: Int? = nil, fp: String? = nil, data: String? = nil,
-        media: ItemType? = nil, port: Int? = nil, hosts: [String]? = nil, offer: String? = nil, status: String? = nil
+        media: ItemType? = nil, port: Int? = nil, hosts: [String]? = nil, offer: String? = nil, status: String? = nil,
+        chunks: Int? = nil
     ) {
         self.v = v
         self.type = type
@@ -84,6 +87,7 @@ public struct Head: Equatable, Sendable {
         self.hosts = hosts
         self.offer = offer
         self.status = status
+        self.chunks = chunks
     }
 
     public enum Invalid: Error, Equatable {
@@ -95,7 +99,7 @@ public struct Head: Equatable, Sendable {
 
     /// JSON in the reference order, serialized like JavaScript's JSON.stringify, without pad:
     /// v, type, item, device{id,name,kind}, ts, then text: mime, size, fp, data; offer: media, mime,
-    /// name, size, fp, port, hosts; reply: offer, status.
+    /// name, size, fp, port, hosts; reply: offer, status; chunked: media, mime, name, size, fp, chunks.
     public func json() -> String {
         var out = "{\"v\":\(v),\"type\":\(Self.quote(type.rawValue)),\"item\":\(Self.quote(item)),"
         out += "\"device\":{\"id\":\(Self.quote(device.id)),\"name\":\(Self.quote(device.name)),\"kind\":\(Self.quote(device.kind.rawValue))},"
@@ -117,6 +121,13 @@ public struct Head: Equatable, Sendable {
         case .reply:
             out += ",\"offer\":\(Self.quote(offer ?? ""))"
             out += ",\"status\":\(Self.quote(status ?? ""))"
+        case .chunked:
+            out += ",\"media\":\(Self.quote(media?.rawValue ?? ""))"
+            out += ",\"mime\":\(Self.quote(mime ?? ""))"
+            if let name { out += ",\"name\":\(Self.quote(name))" }
+            out += ",\"size\":\(size ?? 0)"
+            out += ",\"fp\":\(Self.quote(fp ?? ""))"
+            out += ",\"chunks\":\(chunks ?? 0)"
         case .hello, .image, .file:
             break
         }
@@ -165,9 +176,10 @@ public struct Head: Equatable, Sendable {
         func fail(_ why: String) -> Invalid { .rule(why) }
         guard let v = integer(h["v"]), v == Int64(ClipwayCrypto.protocolVersion) else { throw fail("unknown version") }
         guard let rawType = h["type"] as? String, let type = ItemType(rawValue: rawType) else { throw fail("unknown type") }
-        // Clipway 0.2 sent images and files inside items, in chunks. They travel directly now.
-        guard type.travels else { throw fail("images and files travel directly") }
-        guard h["chunks"] == nil else { throw fail("chunks") }
+        // Clipway 0.2 sent images and files inside items. They travel directly or in chunks now,
+        // and a chunks field only belongs to a chunked head.
+        guard type.travels else { throw fail("images and files travel directly or in chunks") }
+        guard type == .chunked || h["chunks"] == nil else { throw fail("chunks") }
         guard let item = h["item"] as? String, ClipwayCrypto.isId(item) else { throw fail("item") }
         guard let d = h["device"] as? [String: Any], let deviceId = d["id"] as? String, ClipwayCrypto.isId(deviceId) else {
             throw fail("device.id")
@@ -210,23 +222,28 @@ public struct Head: Equatable, Sendable {
             return head
         }
 
-        // offer
+        // offer and chunked
         guard let rawMedia = h["media"] as? String, let media = ItemType(rawValue: rawMedia), media == .image || media == .file else {
             throw fail("media")
         }
         if media == .image && !mime.hasPrefix("image/") { throw fail("image mime") }
-        if size > ClipwayCrypto.fileMax { throw fail("too big") }
+        if size > (type == .chunked ? ClipwayCrypto.relayFileMax : ClipwayCrypto.fileMax) { throw fail("too big") }
         if let raw = h["name"] {
             guard let n = raw as? String, !n.isEmpty, n.unicodeScalars.count <= nameMax else { throw fail("name") }
             head.name = n
         }
         if media == .file && head.name == nil { throw fail("file without name") }
-        if h["data"] != nil { throw fail("an offer carries no content") }
+        if h["data"] != nil { throw fail(type == .chunked ? "the content is in the chunks" : "an offer carries no content") }
+        head.media = media
+        if type == .chunked {
+            guard let chunks = integer(h["chunks"]), chunks == Int64(ClipwayCrypto.chunkCount(size)) else { throw fail("chunks") }
+            head.chunks = Int(chunks)
+            return head
+        }
         guard let port = integer(h["port"]), (1...65_535).contains(port) else { throw fail("port") }
         guard let hosts = h["hosts"] as? [Any], (1...hostsMax).contains(hosts.count) else { throw fail("hosts") }
         let list = hosts.compactMap { $0 as? String }
         guard list.count == hosts.count, list.allSatisfy(isIPv4) else { throw fail("hosts") }
-        head.media = media
         head.port = Int(port)
         head.hosts = list
         return head

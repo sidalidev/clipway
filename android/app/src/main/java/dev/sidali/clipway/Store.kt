@@ -40,7 +40,13 @@ class Prefs(context: Context) {
 
     var relay: String
         get() = raw.getString("relay", null) ?: BuildConfig.DEFAULT_RELAY
-        set(v) = raw.edit().putString("relay", Protocol.normalizeRelay(v)).apply()
+        // Another relay may not take images and files in parts: known again at its welcome.
+        set(v) = raw.edit().putString("relay", Protocol.normalizeRelay(v)).putInt("relay_parts", 1).apply()
+
+    /** The most parts of one item the relay takes, from its last welcome (1: images and files only go directly). */
+    var relayParts: Int
+        get() = raw.getInt("relay_parts", 1)
+        set(v) = raw.edit().putInt("relay_parts", v).apply()
 
     /** Write what the Mac sends into the clipboard. */
     var copyAutomatically: Boolean

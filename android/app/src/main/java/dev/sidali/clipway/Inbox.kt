@@ -25,7 +25,8 @@ import java.util.concurrent.Executors
  * What the phone does with an item from the Mac (docs/PROTOCOL.md, sections 3.4, 3.5 and 5.3):
  * open and check it, write it to the clipboard or Downloads, add it to history, show a quiet
  * notification, and only then let the engine acknowledge it. An offer is fetched directly from
- * the Mac on the local network (section 14), on its own thread.
+ * the Mac on the local network (section 14), on its own thread; a chunked item brings its image or
+ * file through the relay (section 15).
  */
 class Inbox(private val context: Context) {
     private val prefs = Prefs(context)
@@ -81,8 +82,12 @@ class Inbox(private val context: Context) {
                 return
             }
         }
-        if (head.type != "text" || content == null) return
-        receive(head, head.type, content, now)
+        if (content == null) return
+        when (head.type) {
+            "text" -> receive(head, "text", content, now)
+            // An image or a file that came through the relay in chunks, already checked.
+            "chunked" -> receive(head, head.media ?: "file", content, now)
+        }
     }
 
     /** Fetches an offered image or file from the Mac; says so through the relay and a notification if it cannot. */
@@ -93,20 +98,22 @@ class Inbox(private val context: Context) {
             receive(head, head.media ?: "file", content, System.currentTimeMillis())
         }
         Log.i(TAG, "Direct ${head.media}: ${result.javaClass.simpleName}")
+        // A 0.4 sender sends a content of 4 MB at most through the relay instead: nothing to say yet.
+        val comesByRelay = Protocol.fitsRelay(head.size, prefs.relayParts)
         when (result) {
             is Direct.Fetched.Ok -> Unit
             Direct.Fetched.Unreachable -> {
                 Sender.reply(context, keys, head.item, "unreachable")
-                Notices.notReceived(context, name, from, network = true)
+                if (!comesByRelay) Notices.notReceived(context, name, from, network = true)
             }
             Direct.Fetched.Failed -> {
                 Sender.reply(context, keys, head.item, "failed")
-                Notices.notReceived(context, name, from, network = false)
+                if (!comesByRelay) Notices.notReceived(context, name, from, network = false)
             }
         }
     }
 
-    /** A text, or an image or a file fetched directly: clipboard or Downloads, history, notification. */
+    /** A text, or an image or a file (fetched directly or through the relay): clipboard or Downloads, history, notification. */
     private fun receive(head: Protocol.Head, type: String, content: ByteArray, now: Long) {
         val from = head.device.name
         Sender.noteEcho(head.fp)

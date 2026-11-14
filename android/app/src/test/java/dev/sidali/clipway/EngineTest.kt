@@ -111,11 +111,43 @@ class EngineTest {
         ev.answer = Engine.Delivery.Retry
         e.onFrame(itemFrame(9, 0, 1, item.parts[0]), 0)
         assertEquals(8L, cursor.after)
-        // An item in several parts (Clipway 0.2's images and files) is never handed over.
+        // An item in parts is handed over once complete, all its parts in order.
         ev.answer = Engine.Delivery.Ack
-        e.onFrame(itemFrame(11, 0, 3, item.parts[0]), 0)
-        e.onFrame(itemFrame(11, 1, 3, item.parts[0]), 0)
-        assertEquals(listOf(7L, 8L, 9L), ev.delivered)
+        val photo = Protocol.chunked(keys, mac, 1, "image", "image/png", null, ByteArray(150_000) { (it % 7).toByte() })
+        assertEquals(4, photo.parts.size)
+        photo.parts.forEachIndexed { i, p -> e.onFrame(itemFrame(11, i, 4, p), 0) }
+        assertEquals(listOf(7L, 8L, 9L, 11L), ev.delivered)
+        assertEquals("""{"kind":"ack","seq":11}""", w.sent.last())
+        // Parts out of order are never handed over, nor more parts than the protocol allows.
+        e.onFrame(itemFrame(12, 0, 4, photo.parts[0]), 0)
+        e.onFrame(itemFrame(12, 2, 4, photo.parts[2]), 0)
+        e.onFrame(itemFrame(13, 0, Protocol.PARTS_MAX + 1, photo.parts[0]), 0)
+        assertEquals(listOf(7L, 8L, 9L, 11L), ev.delivered)
+    }
+
+    @Test
+    fun aChunkedUploadGoesWholeAndUpdatesItsHistoryRow() {
+        val outbox = Outbox()
+        val ev = Events()
+        val e = Engine(keys, outbox, Cursor(), ev)
+        val w = Wire()
+        val content = ByteArray(Crypto.RELAY_FILE_MAX) { (it % 13).toByte() }
+        val photo = Protocol.chunked(keys, phone, 1, "image", "image/jpeg", "IMG.jpg", content)
+        // Sent through the relay after its direct offer failed: a new item, the offer's history row.
+        outbox.add(Outbox.Pending(photo.head.item, "chunked", photo.head.fp!!, photo.parts, history = "ab".repeat(16)))
+        e.attach(w)
+        assertEquals(1, e.relayParts)
+        e.onFrame("""{"kind":"welcome","v":1,"epoch":"e","devices":2,"limits":{"parts":65}}""", 0)
+        assertEquals(65, e.relayParts)
+        e.onFrame("""{"kind":"synced","last":0}""", 0)
+        val frames = w.sent.drop(1).map { JSONObject(it) }
+        assertEquals(Protocol.PARTS_MAX, frames.size)
+        assertEquals((0 until 65).toList(), frames.map { it.getInt("part") })
+        assertTrue(frames.all { it.getInt("parts") == 65 && it.getInt("ref") == frames[0].getInt("ref") })
+        assertTrue(frames.all { it.toString().length < Protocol.FRAME_MAX })
+        e.onFrame("""{"kind":"stored","ref":${frames[0].getInt("ref")},"seq":4}""", 0)
+        assertEquals(listOf("ab".repeat(16) to 4L), ev.stored)
+        assertEquals(0, outbox.size())
     }
 
     @Test

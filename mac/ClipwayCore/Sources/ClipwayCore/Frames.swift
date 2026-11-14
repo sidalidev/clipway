@@ -3,7 +3,8 @@ import Foundation
 /// Relay frames: JSON text WebSocket frames (docs/PROTOCOL.md, section 4.2).
 public enum RelayFrame: Equatable, Sendable {
     // Relay to device
-    case welcome(epoch: String, devices: Int)
+    /// parts: the most parts of one item the relay takes (1 for a relay older than 0.4.0).
+    case welcome(epoch: String, devices: Int, parts: Int)
     case synced(last: Int)
     case item(seq: Int, part: Int, parts: Int, ts: Int64, blob: ClipwayCrypto.Envelope)
     case stored(ref: Int, seq: Int)
@@ -31,7 +32,9 @@ public enum RelayFrame: Equatable, Sendable {
         switch kind {
         case "welcome":
             guard let epoch = o["epoch"] as? String else { throw Invalid.field("epoch") }
-            return .welcome(epoch: epoch, devices: (try? int("devices")) ?? 1)
+            let limits = o["limits"] as? [String: Any]
+            let parts = Head.integer(limits?["parts"]).map { Int($0) } ?? 1
+            return .welcome(epoch: epoch, devices: (try? int("devices")) ?? 1, parts: max(1, parts))
         case "synced":
             return .synced(last: try int("last"))
         case "item":

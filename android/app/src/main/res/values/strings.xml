@@ -180,6 +180,7 @@
     <string name="too_long">Too long: Clipway sends texts up to 64 KB</string>
     <string name="sending_directly">Sending directly to %1$s</string>
     <string name="no_local_network">Not sent: connect to the same Wi-Fi as your Mac</string>
+    <string name="too_large_for_relay">Not sent: over 4 MB, connect to the same Wi-Fi as your Mac</string>
     <string name="already_sent">Already sent</string>
 
     <!-- Receiving -->
@@ -302,12 +303,12 @@
     <string name="leaves_encrypted">Encrypted</string>
     <string name="leaves_sent_title">What you send</string>
     <string name="leaves_sent_body">Texts you send with the tile, Send to Mac in the text menu, the share menu or Send clipboard, 64 KB at most. Never on their own: Android does not let apps read the clipboard in the background. Sent to the relay %1$s, end-to-end encrypted, with this phone\'s name inside.</string>
-    <string name="leaves_direct_title">Images and files: never on a server</string>
-    <string name="leaves_direct_body">They go straight from this phone to your Mac over your local network, encrypted with a key made for that one transfer. The relay only passes a short encrypted note that tells your Mac where to fetch it. So both devices need to be on the same network. Nobody can check what travels encrypted without an account, so our relay refuses to carry pictures or files at all.</string>
+    <string name="leaves_direct_title">Images and files</string>
+    <string name="leaves_direct_body">On the same network, they go straight from this phone to your Mac, encrypted with a key made for that one transfer: the relay only passes a short encrypted note that tells your Mac where to fetch them. Otherwise, up to 4 MB, they go through the relay %1$s in encrypted pieces and wait there for your Mac, 24 hours at most. Larger ones need the same network.</string>
     <string name="leaves_received_title">What your Mac sends</string>
-    <string name="leaves_received_body">Texts come from the relay %1$s, end-to-end encrypted. Images and files come straight from your Mac over your local network, encrypted with a key made for that one transfer. Only your devices hold the key.</string>
+    <string name="leaves_received_body">Texts come from the relay %1$s, end-to-end encrypted. Images and files come straight from your Mac over your local network, or through the relay in encrypted pieces when that is not possible. Only your devices hold the key.</string>
     <string name="leaves_relay_title">What the relay sees</string>
-    <string name="leaves_relay_body">A random chain id, the time and size of each item, how many of your devices are connected, and your IP address while connected. Never the content, file names, device names, or whether an item is a text or a note about a file.</string>
+    <string name="leaves_relay_body">A random chain id, the time and size of each item, how many of your devices are connected, and your IP address while connected. For an image or a file it passes along, it sees the number of pieces, so roughly how large it is. Never the content, file names, device names, or the type of an item.</string>
     <string name="leaves_time_title">How long</string>
     <string name="leaves_time_body">Items wait on the relay for a device that is offline, 24 hours at most, in memory only. Then they are erased. The relay never logs your IP address. On clip.sidali.dev, the web server in front of it keeps IP addresses for 7 days.</string>
     <string name="leaves_status_title">The relay\'s status</string>

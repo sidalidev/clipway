@@ -29,6 +29,10 @@ import {
   HEAD_MAX,
   ENC_MAX,
   FILE_MAX,
+  CHUNK_SIZE,
+  RELAY_FILE_MAX,
+  PARTS_MAX,
+  chunkAad,
 } from "../relay/crypto.js";
 import { WORDS } from "../relay/bip39-english.js";
 import * as nearby from "../relay/nearby.js";
@@ -58,7 +62,7 @@ const big = Buffer.alloc(BIG_SIZE);
 for (let i = 0; i < BIG_SIZE; i++) big[i] = i % 251;
 
 function itemVector(note, input, nonce) {
-  const built = buildItem(S, input, { nonce });
+  const built = buildItem(S, input, Array.isArray(nonce) ? { nonces: nonce } : { nonce });
   const back = readItem(S, built.envelopes);
   if (back.head.item !== built.head.item) throw new Error("round trip failed");
   return {
@@ -101,8 +105,63 @@ const reply = itemVector(
   "5a5b5c5d5e5f606162636465",
 );
 
+// Images and files through the relay, cut in chunks (section 15). Chunk nonces: 10 fixed bytes, then
+// the chunk index on 2 bytes.
+const chunkNonce = (i) => "c0c1c2c3c4c5c6c7c8c9" + i.toString(16).padStart(4, "0");
+const chunkedImage = itemVector(
+  "A small image sent by the phone through the relay: the head (AAD = chain id), then one chunk (AAD = clipway-chunk|<chain id>|<item>|0|1).",
+  { type: "chunked", item: "c0c1c2c3c4c5c6c7c8c9cacbcccdcecf", device: PIXEL, ts: TS + 6000, media: "image", mime: "image/png", name: "dot.png", content: PNG },
+  ["6b6c6d6e6f70717273747576", chunkNonce(0)],
+);
+const chunkedFile = itemVector(
+  "A file of 150 000 bytes (byte i = i mod 251) sent by the Mac through the relay: the head, then 3 chunks of 65 536, 65 536 and 18 928 bytes.",
+  { type: "chunked", item: "d0d1d2d3d4d5d6d7d8d9dadbdcdddedf", device: MAC, ts: TS + 7000, media: "file", mime: "application/octet-stream", name: "pattern.bin", content: big },
+  ["7b7c7d7e7f80818283848586", chunkNonce(0), chunkNonce(1), chunkNonce(2)],
+);
+const chunkedEmpty = itemVector(
+  "An empty file through the relay: a head with chunks 0, and no other part.",
+  { type: "chunked", item: "e0e1e2e3e4e5e6e7e8e9eaebecedeeef", device: MAC, ts: TS + 8000, media: "file", mime: "text/plain", name: "empty.txt", content: Buffer.alloc(0) },
+  ["8b8c8d8e8f90919293949596"],
+);
+for (const v of [chunkedImage, chunkedFile, chunkedEmpty]) {
+  const back = readItem(S, v.built.envelopes);
+  if (back.content.length !== v.head.size) throw new Error("chunked round trip failed");
+}
+// Chunks swapped, a chunk missing, or a chunk of another item: refused.
+{
+  const e = chunkedFile.built.envelopes;
+  for (const [label, parts] of [
+    ["swapped", [e[0], e[2], e[1], e[3]]],
+    ["missing", [e[0], e[1], e[2]]],
+    ["extra", [...e, e[3]]],
+    ["other item", [chunkedImage.built.envelopes[0], e[1]]],
+  ]) {
+    let refused = false;
+    try {
+      readItem(S, parts);
+    } catch {
+      refused = true;
+    }
+    if (!refused) throw new Error(`chunked negative case accepted: ${label}`);
+  }
+}
+const chunkPart = (v, i, full) => {
+  const env = v.built.envelopes[i + 1];
+  const o = { index: i, aad: chunkAad(id, v.head.item, i, v.head.chunks), nonce: env.nonce, plaintext_bytes: Buffer.from(env.enc, "base64").length - 16, enc_length: env.enc.length, enc_sha256: sha256(env.enc) };
+  if (full) o.envelope = env;
+  return o;
+};
+const chunkedVector = (v, fullChunks) => ({
+  note: v.note,
+  head: v.head,
+  plaintext: v.plaintext,
+  plaintext_bytes: v.plaintext_bytes,
+  envelope: v.built.envelopes[0],
+  chunks: v.head.chunks ? [...Array(v.head.chunks).keys()].map((i) => chunkPart(v, i, fullChunks || i === v.head.chunks - 1)) : [],
+});
+
 // Heads every implementation must refuse: an image or a file inside an item (Clipway 0.2 and
-// earlier) and a text cut in chunks. They travel directly now, never through the relay.
+// earlier), a text cut in chunks, and chunked heads that break a rule.
 const legacyImage = { v: 1, type: "image", item: "a0a1a2a3a4a5a6a7a8a9aaabacadaeaf", device: PIXEL, ts: TS + 1000, mime: "image/png", name: "dot.png", size: PNG.length, fp: fingerprint(keys.mac, PNG), data: PNG.toString("base64") };
 const legacyImageJson = padHead(JSON.stringify(legacyImage));
 const legacyChunked = { v: 1, type: "text", item: "c0c1c2c3c4c5c6c7c8c9cacbcccdcecf", device: MAC, ts: TS, mime: "text/plain", size: 1_500_000, fp: fingerprint(keys.mac, big), chunks: 2 };
@@ -112,6 +171,10 @@ const refusedHeads = [
   ["text over 64 KiB", padHead(JSON.stringify({ v: 1, type: "text", item: "d0d1d2d3d4d5d6d7d8d9dadbdcdddedf", device: MAC, ts: TS, mime: "text/plain", size: TEXT_MAX + 1, fp: fingerprint(keys.mac, Buffer.alloc(TEXT_MAX + 1, 0x61)), data: Buffer.alloc(TEXT_MAX + 1, 0x61).toString("base64") })), "8a8b8c8d8e8f909192939495"],
   ["offer without hosts", padHead(JSON.stringify({ ...offerImage.head, hosts: [] })), "9a9b9c9d9e9fa0a1a2a3a4a5"],
   ["offer with a host name", padHead(JSON.stringify({ ...offerImage.head, hosts: ["mac.local"] })), "aaabacadaeafb0b1b2b3b4b5"],
+  ["chunked with the wrong number of chunks", padHead(JSON.stringify({ ...chunkedFile.head, chunks: 2 })), "babbbcbdbebfc0c1c2c3c4c5"],
+  ["chunked over 4 MiB", padHead(JSON.stringify({ ...chunkedFile.head, size: RELAY_FILE_MAX + 1, chunks: 65 })), "cacbcccdcecfd0d1d2d3d4d5"],
+  ["chunked with data", padHead(JSON.stringify({ ...chunkedImage.head, data: PNG.toString("base64") })), "dadbdcdddedfe0e1e2e3e4e5"],
+  ["offer with chunks", padHead(JSON.stringify({ ...offerImage.head, chunks: 1 })), "eaebecedeeeff0f1f2f3f4f5"],
 ].map(([why, json, nonce]) => {
   const envelope = encryptHead(S, json, nonce);
   let refused = false;
@@ -185,19 +248,30 @@ const vectors = {
     padded_bytes: Buffer.byteLength(padHead('{"v":1}'), "utf8"),
   },
   limits: {
-    note: "The relay carries texts only: one envelope per item, at most the size of a 64 KiB text. Images and files (25 MiB at most) go directly (section 14).",
+    note: "Every envelope is at most the size of a 64 KiB text. Images and files go directly (25 MiB at most, section 14) or through the relay in chunks of 64 KiB (4 MiB at most, section 15: the head, then up to 64 chunks).",
     text: TEXT_MAX,
     head: HEAD_MAX,
     enc: ENC_MAX,
     file: FILE_MAX,
+    chunk: CHUNK_SIZE,
+    relay_file: RELAY_FILE_MAX,
+    parts: PARTS_MAX,
   },
   text_item: { note: text.note, head: text.head, plaintext: text.plaintext, plaintext_bytes: text.plaintext_bytes, envelope: text.envelope },
   hello_item: { note: hello.note, head: hello.head, plaintext: hello.plaintext, plaintext_bytes: hello.plaintext_bytes, envelope: hello.envelope },
   offer_item: { note: offerImage.note, head: offerImage.head, plaintext: offerImage.plaintext, plaintext_bytes: offerImage.plaintext_bytes, envelope: offerImage.envelope },
   offer_file_item: { note: offerFile.note, head: offerFile.head, plaintext: offerFile.plaintext, plaintext_bytes: offerFile.plaintext_bytes, envelope: offerFile.envelope },
   reply_item: { note: reply.note, head: reply.head, plaintext: reply.plaintext, plaintext_bytes: reply.plaintext_bytes, envelope: reply.envelope },
+  chunked_item: chunkedVector(chunkedImage, true),
+  chunked_file_item: {
+    ...chunkedVector(chunkedFile, false),
+    content_rule: "byte i = i mod 251",
+    content_sha256: sha256(big),
+    chunk_rule: "Every chunk but the last is given by its sha256 only: seal content[i * 65536 .. (i + 1) * 65536] with K_enc, the nonce and the aad, and compare. Chunks swapped, missing, extra, or taken from another item must be refused.",
+  },
+  chunked_empty_item: chunkedVector(chunkedEmpty, true),
   refused_heads: {
-    note: "Envelopes that open, but whose head must be refused (dropped and acknowledged): images and files never travel inside items any more, and nothing is cut in chunks.",
+    note: "Envelopes that open, but whose head must be refused (dropped and acknowledged): no image or file inside one envelope (Clipway 0.2), no chunks outside a chunked head, and chunked heads must have the right number of chunks, 4 MiB at most and no data.",
     cases: refusedHeads,
   },
   negative: {
@@ -207,7 +281,7 @@ const vectors = {
   },
   frames: {
     note: "Examples of relay frames (JSON text WebSocket frames). See docs/PROTOCOL.md, Relay.",
-    welcome: { kind: "welcome", v: 1, epoch: "5f3a9c0d1e2b4a68", devices: 2, limits: { frame: 131072, parts: 1, text: TEXT_MAX, enc: ENC_MAX, items: 50, bytes: 6291456, ttl: 86400000 } },
+    welcome: { kind: "welcome", v: 1, epoch: "5f3a9c0d1e2b4a68", devices: 2, limits: { frame: 131072, parts: PARTS_MAX, text: TEXT_MAX, enc: ENC_MAX, items: 50, bytes: 6291456, ttl: 86400000 } },
     sync: { kind: "sync", epoch: "5f3a9c0d1e2b4a68", after: 41 },
     synced: { kind: "synced", last: 42 },
     upload: { kind: "item", ref: 7, part: 0, parts: 1, blob: text.envelope },
@@ -218,7 +292,8 @@ const vectors = {
     presence: { kind: "presence", devices: 1 },
     ping: { kind: "ping" },
     pong: { kind: "pong" },
-    error: { kind: "error", ref: 7, code: "too_big", message: "this relay carries texts of 64 KB at most: images and files go directly between your devices" },
+    upload_chunked: { kind: "item", ref: 8, part: 1, parts: 2, blob: chunkedImage.built.envelopes[1] },
+    error: { kind: "error", ref: 7, code: "too_big", message: "this relay carries texts of 64 KB and images or files of 4 MB at most: larger ones go directly between your devices" },
   },
 };
 

@@ -8,7 +8,8 @@ import java.util.Base64
  * The Clipway protocol, version 1 (docs/PROTOCOL.md): item heads (texts, hellos, offers and
  * replies), frames, freshness and duplicates, file names, relay addresses. Pure Kotlin on top of
  * [Crypto] and org.json, so every rule is tested on the JVM against docs/VECTORS.json.
- * The relay carries texts only: images and files go directly ([Direct]).
+ * Images and files go directly on the local network ([Direct]), or through the relay in
+ * encrypted chunks of 64 KiB when they are 4 MiB at most (a chunked item, section 15).
  */
 object Protocol {
 
@@ -17,8 +18,8 @@ object Protocol {
     const val DEVICE_NAME_MAX = 64
     const val NAME_MAX = 255
     const val FILE_NAME_KEEP = 120
-    /** Every item is one envelope: the relay refuses anything in parts. */
-    const val PARTS_MAX = 1
+    /** Most parts of an item: one envelope, or the head and up to 64 chunks of a chunked item. */
+    const val PARTS_MAX = Crypto.PARTS_MAX
     const val FRAME_MAX = 131_072
     const val HOSTS_MAX = 8
 
@@ -35,8 +36,8 @@ object Protocol {
     /** The same content sent or received less than this ago is not sent again (echo, double tap). */
     const val ECHO_MS = 10_000L
 
-    /** What travels through the relay. "image" and "file" (Clipway 0.2) are refused: an offer stands for them. */
-    val TYPES = setOf("text", "hello", "offer", "reply")
+    /** What travels through the relay. "image" and "file" (Clipway 0.2) are refused: an offer or a chunked item stands for them. */
+    val TYPES = setOf("text", "hello", "offer", "reply", "chunked")
     val MEDIA = setOf("image", "file")
     val REPLY_STATUS = setOf("done", "unreachable", "declined", "failed")
     val KINDS = setOf("mac", "android")
@@ -91,6 +92,8 @@ object Protocol {
         /** reply: the offer it answers, and why. */
         val offer: String? = null,
         val status: String? = null,
+        /** chunked: how many chunks follow the head. */
+        val chunks: Int = 0,
         val v: Int = VERSION,
     )
 
@@ -101,18 +104,22 @@ object Protocol {
     /** Largest content for a type: a text (64 KiB), or an image or a file sent directly (25 MiB). */
     fun maxSize(type: String): Long = if (type == "text") Crypto.TEXT_MAX.toLong() else Crypto.FILE_MAX.toLong()
 
+    /** True when an image or a file can go through the relay: 4 MiB at most, and a relay that takes its parts. */
+    fun fitsRelay(size: Long, relayParts: Int): Boolean =
+        size <= Crypto.RELAY_FILE_MAX && 1 + Crypto.chunkCount(size) <= minOf(relayParts, PARTS_MAX)
+
     /** Checks every rule of section 3.1. Throws [Invalid]. */
     fun validate(h: Head): Head {
         fun fail(why: String): Nothing = throw Invalid(why)
         if (h.v != VERSION) fail("unknown version")
-        if (h.type !in TYPES) fail(if (h.type in MEDIA) "images and files travel directly" else "unknown type")
+        if (h.type !in TYPES) fail(if (h.type in MEDIA) "images and files travel directly or in chunks" else "unknown type")
         if (!RE_HEX32.matches(h.item)) fail("item")
         if (!RE_HEX32.matches(h.device.id)) fail("device.id")
         val n = codePoints(h.device.name)
         if (h.device.name.isEmpty() || n > DEVICE_NAME_MAX) fail("device.name")
         if (h.device.kind !in KINDS) fail("device.kind")
         if (h.ts < 0) fail("ts")
-        val bare = h.copy(mime = null, name = null, size = 0, fp = null, data = null, media = null, port = 0, hosts = emptyList(), offer = null, status = null)
+        val bare = h.copy(mime = null, name = null, size = 0, fp = null, data = null, media = null, port = 0, hosts = emptyList(), offer = null, status = null, chunks = 0)
         when (h.type) {
             "hello" -> return bare
             "reply" -> {
@@ -139,13 +146,17 @@ object Protocol {
             if (decoded.size.toLong() != h.size) fail("data length")
             return bare.copy(mime = mime, size = h.size, fp = h.fp, data = data)
         }
-        // offer
+        // offer and chunked
         if (h.media !in MEDIA) fail("media")
         if (h.media == "image" && !mime.startsWith("image/")) fail("image mime")
-        if (h.size > Crypto.FILE_MAX) fail("too big")
+        if (h.size > if (h.type == "chunked") Crypto.RELAY_FILE_MAX.toLong() else Crypto.FILE_MAX.toLong()) fail("too big")
         if (h.media == "file" && h.name == null) fail("file without name")
         if (h.name != null && (h.name.isEmpty() || codePoints(h.name) > NAME_MAX)) fail("name")
-        if (h.data != null) fail("an offer carries no content")
+        if (h.data != null) fail(if (h.type == "chunked") "the content is in the chunks" else "an offer carries no content")
+        if (h.type == "chunked") {
+            if (h.chunks != Crypto.chunkCount(h.size)) fail("chunks")
+            return bare.copy(mime = mime, name = h.name, size = h.size, fp = h.fp, media = h.media, chunks = h.chunks)
+        }
         if (h.port !in 1..65_535) fail("port")
         if (h.hosts.isEmpty() || h.hosts.size > HOSTS_MAX || !h.hosts.all { isIPv4(it) }) fail("hosts")
         return bare.copy(mime = mime, name = h.name, size = h.size, fp = h.fp, media = h.media, port = h.port, hosts = h.hosts)
@@ -154,7 +165,8 @@ object Protocol {
     /**
      * Serializes a head like JSON.stringify in the reference order, without padding:
      * v, type, item, device{id,name,kind}, ts, then text: mime, size, fp, data; offer: media, mime,
-     * name, size, fp, port, hosts; reply: offer, status. Readers accept any order; this order only
+     * name, size, fp, port, hosts; reply: offer, status; chunked: media, mime, name, size, fp, chunks.
+     * Readers accept any order; this order only
      * matters to reproduce docs/VECTORS.json byte for byte.
      */
     fun serialize(h: Head): String {
@@ -187,6 +199,14 @@ object Protocol {
             "reply" -> {
                 sb.append(",\"offer\":"); str(sb, h.offer ?: "")
                 sb.append(",\"status\":"); str(sb, h.status ?: "")
+            }
+            "chunked" -> {
+                sb.append(",\"media\":"); str(sb, h.media ?: "")
+                sb.append(",\"mime\":"); str(sb, h.mime ?: "")
+                if (h.name != null) { sb.append(",\"name\":"); str(sb, h.name) }
+                sb.append(",\"size\":").append(h.size)
+                sb.append(",\"fp\":"); str(sb, h.fp ?: "")
+                sb.append(",\"chunks\":").append(h.chunks)
             }
         }
         return sb.append('}').toString()
@@ -233,7 +253,7 @@ object Protocol {
         fun string(key: String, from: JSONObject = o): String? = from.opt(key) as? String
         val d = o.optJSONObject("device") ?: throw Invalid("device")
         val type = string("type") ?: throw Invalid("type")
-        val content = type == "text" || type == "offer"
+        val content = type == "text" || type == "offer" || type == "chunked"
         val hosts = if (o.has("hosts")) {
             val a = o.optJSONArray("hosts") ?: throw Invalid("hosts")
             if (a.length() > HOSTS_MAX) throw Invalid("hosts")
@@ -259,17 +279,18 @@ object Protocol {
             hosts = hosts,
             offer = string("offer"),
             status = string("status"),
+            chunks = if (o.has("chunks")) int("chunks")?.takeIf { it in 0..Crypto.PARTS_MAX }?.toInt() ?: throw Invalid("chunks") else -1,
         )
-        // Chunks were Clipway 0.2's way to carry images and files through the relay: refused.
-        if (o.has("chunks")) throw Invalid("chunks")
-        return validate(head)
+        // Chunks only follow a chunked head (Clipway 0.2 also cut texts and inline images in chunks: refused).
+        if (type != "chunked" && o.has("chunks")) throw Invalid("chunks")
+        return validate(if (type == "chunked") head else head.copy(chunks = 0))
     }
 
     // ---------------------------------------------------------------------
     // Building and opening items
     // ---------------------------------------------------------------------
 
-    /** An item ready for the relay: its head and its one envelope. */
+    /** An item ready for the relay: its head and its envelopes (one, or the head and the chunks). */
     class Built(val head: Head, val parts: List<Crypto.Envelope>)
 
     fun newItemId(): String = Crypto.hex(Crypto.randomBytes(16))
@@ -327,6 +348,39 @@ object Protocol {
         nonce,
     )
 
+    /**
+     * An image or a file of 4 MiB at most sent through the relay (section 15): the padded head
+     * (AAD = chain id), then one envelope per 64 KiB chunk (AAD = clipway-chunk|chain|item|index|count).
+     * [nonces]: fixed nonces for every part, the head first (tests and vectors only).
+     */
+    fun chunked(
+        keys: Keys,
+        device: Device,
+        ts: Long,
+        media: String,
+        mime: String?,
+        name: String?,
+        content: ByteArray,
+        item: String = newItemId(),
+        nonces: List<ByteArray>? = null,
+    ): Built {
+        val chunks = Crypto.chunkCount(content.size.toLong())
+        val head = Head(
+            type = "chunked", item = item, device = device, ts = ts, media = media,
+            mime = if (media == "image") cleanMime(mime, "image/png") else cleanMime(mime), name = name,
+            size = content.size.toLong(), fp = Crypto.fingerprint(keys.mac, content), chunks = chunks,
+        )
+        val first = seal(keys, head, nonces?.get(0))
+        val parts = ArrayList<Crypto.Envelope>(1 + chunks)
+        parts += first.parts
+        for (i in 0 until chunks) {
+            val from = i * Crypto.CHUNK_SIZE
+            val slice = content.copyOfRange(from, minOf(content.size, from + Crypto.CHUNK_SIZE))
+            parts += Crypto.seal(keys.enc, Crypto.chunkAad(keys.chainId, item, i, chunks), slice, nonces?.get(i + 1) ?: Crypto.randomBytes(Crypto.NONCE_SIZE))
+        }
+        return Built(first.head, parts)
+    }
+
     /** The answer to an offer that could not be delivered directly. */
     fun reply(keys: Keys, device: Device, ts: Long, offer: String, status: String, item: String = newItemId(), nonce: ByteArray? = null): Built =
         seal(keys, Head(type = "reply", item = item, device = device, ts = ts, offer = offer, status = status), nonce)
@@ -345,12 +399,13 @@ object Protocol {
     fun fresh(ts: Long, now: Long): Boolean = now - ts <= PAST_MS && ts - now <= FUTURE_MS
 
     /**
-     * Opens an item (section 5.3): its one envelope, the rules of 3.4, then the size and fp of a
-     * text. An offer older than 2 minutes is stale: its sender stopped listening.
+     * Opens an item (section 5.3): its head, the rules of 3.4, then the size and fp of a text, or
+     * of the content put back together from the chunks of a chunked item. An offer older than 2
+     * minutes is stale: its sender stopped listening.
      * [seen] is only read: the caller records the item once it is handled.
      */
     fun open(keys: Keys, parts: List<Crypto.Envelope>, now: Long, ownDeviceId: String, seen: Seen): Opened {
-        if (parts.size != 1) return Opened.Dropped(Drop.Parts)
+        if (parts.isEmpty() || parts.size > PARTS_MAX) return Opened.Dropped(Drop.Parts)
         val headText = try {
             String(Crypto.open(keys.enc, keys.chainId, parts[0]), Charsets.UTF_8)
         } catch (e: Exception) {
@@ -364,9 +419,26 @@ object Protocol {
         if (head.device.id == ownDeviceId) return Opened.Dropped(Drop.Own)
         if (!fresh(head.ts, now)) return Opened.Dropped(Drop.Stale)
         if (head.type == "offer" && now - head.ts > OFFER_MS) return Opened.Dropped(Drop.Stale)
+        if (parts.size != if (head.type == "chunked") 1 + head.chunks else 1) return Opened.Dropped(Drop.Parts)
         if (seen.contains(head.item, now)) return Opened.Dropped(Drop.Duplicate)
-        if (head.type != "text") return Opened.Ok(head, null)
-        val content = Base64.getDecoder().decode(head.data)
+        if (head.type != "text" && head.type != "chunked") return Opened.Ok(head, null)
+        val content = if (head.type == "chunked") {
+            val out = java.io.ByteArrayOutputStream(head.size.toInt())
+            for (i in 0 until head.chunks) {
+                val chunk = try {
+                    Crypto.open(keys.enc, Crypto.chunkAad(keys.chainId, head.item, i, head.chunks), parts[i + 1])
+                } catch (e: Exception) {
+                    return Opened.Dropped(Drop.Unreadable)
+                }
+                // Every chunk is full but the last.
+                val expected = if (i < head.chunks - 1) Crypto.CHUNK_SIZE.toLong() else head.size - i.toLong() * Crypto.CHUNK_SIZE
+                if (chunk.size.toLong() != expected) return Opened.Dropped(Drop.Mismatch)
+                out.write(chunk)
+            }
+            out.toByteArray()
+        } else {
+            Base64.getDecoder().decode(head.data)
+        }
         if (content.size.toLong() != head.size) return Opened.Dropped(Drop.Mismatch)
         if (!Crypto.same(Crypto.fromHex(Crypto.fingerprint(keys.mac, content)), Crypto.fromHex(head.fp!!))) {
             return Opened.Dropped(Drop.Mismatch)
@@ -559,7 +631,7 @@ object Protocol {
         fun ack(seq: Long) = """{"kind":"ack","seq":$seq}"""
         const val PING = """{"kind":"ping"}"""
 
-        /** Built by hand: the blob can be 1.4 MB, and org.json would copy it twice. */
+        /** Built by hand: org.json would copy the blob (up to 117 KB) twice. */
         fun item(ref: Int, part: Int, parts: Int, e: Crypto.Envelope): String =
             StringBuilder(e.enc.length + 120).append("{\"kind\":\"item\",\"ref\":").append(ref)
                 .append(",\"part\":").append(part).append(",\"parts\":").append(parts)
@@ -568,7 +640,8 @@ object Protocol {
 
     /** A frame from the relay. Anything unknown or malformed is [Other]. */
     sealed class Incoming {
-        class Welcome(val epoch: String, val devices: Int) : Incoming()
+        /** [parts]: the most parts of one item this relay takes (1 for a relay older than 0.4.0). */
+        class Welcome(val epoch: String, val devices: Int, val parts: Int = 1) : Incoming()
         class Synced(val last: Long) : Incoming()
         class Item(val seq: Long, val part: Int, val parts: Int, val ts: Long, val blob: Crypto.Envelope) : Incoming()
         class Stored(val ref: Int, val seq: Long) : Incoming()
@@ -584,7 +657,7 @@ object Protocol {
     fun parseFrame(text: String): Incoming = try {
         val o = JSONObject(text)
         when (o.optString("kind")) {
-            "welcome" -> Incoming.Welcome(o.getString("epoch"), o.optInt("devices", 1))
+            "welcome" -> Incoming.Welcome(o.getString("epoch"), o.optInt("devices", 1), o.optJSONObject("limits")?.optInt("parts", 1) ?: 1)
             "synced" -> Incoming.Synced(o.getLong("last"))
             "item" -> {
                 val b = o.getJSONObject("blob")

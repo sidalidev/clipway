@@ -27,6 +27,11 @@ import {
   HEAD_MAX,
   ENC_MAX,
   FILE_MAX,
+  CHUNK_SIZE,
+  RELAY_FILE_MAX,
+  PARTS_MAX,
+  chunkCount,
+  chunkAad,
 } from "../crypto.js";
 import { WORDS } from "../bip39-english.js";
 
@@ -83,6 +88,10 @@ test("limits: texts of 64 KiB, heads of 172 x 512 bytes, envelopes of 117 440 ba
   assert.equal(ENC_MAX, V.limits.enc);
   assert.equal(ENC_MAX, Math.ceil((HEAD_MAX + 16) / 3) * 4);
   assert.equal(FILE_MAX, V.limits.file);
+  assert.equal(CHUNK_SIZE, V.limits.chunk);
+  assert.equal(RELAY_FILE_MAX, V.limits.relay_file);
+  assert.equal(PARTS_MAX, V.limits.parts);
+  assert.equal(PARTS_MAX, 65);
   // The largest text with an ordinary name fits, with room to spare.
   const built = buildItem(S, { type: "text", device: { id: "0".repeat(32), name: "x".repeat(64), kind: "mac" }, ts: Date.now(), content: Buffer.alloc(TEXT_MAX, 0x7a) });
   assert.ok(built.envelopes[0].enc.length <= ENC_MAX);
@@ -112,13 +121,58 @@ test("items: seal the exact plaintext with the fixed nonce, and read them back",
   assert.deepEqual([offer.head.media, offer.head.name, offer.head.port, offer.head.hosts], ["image", "dot.png", 41234, ["192.168.1.23", "10.0.0.7"]]);
   assert.deepEqual(readItem(S, [V.reply_item.envelope]).head.status, "unreachable");
   assert.equal(readItem(S, [V.hello_item.envelope]).content, null);
-  // One envelope per item, always.
-  assert.throws(() => readItem(S, [V.text_item.envelope, V.text_item.envelope]), /one part/);
+  // One envelope per item, except a chunked one.
+  assert.throws(() => readItem(S, [V.text_item.envelope, V.text_item.envelope]), /parts/);
+});
+
+test("chunked items: exact head and chunks with the fixed nonces, read back, and refused when broken", () => {
+  const k = deriveKeys(S);
+  const big = Buffer.alloc(V.chunked_file_item.head.size);
+  for (let i = 0; i < big.length; i++) big[i] = i % 251;
+  const PNG = readItem(S, [V.chunked_item.envelope, V.chunked_item.chunks[0].envelope]).content;
+  assert.equal(PNG.length, V.chunked_item.head.size);
+  for (const [name, content] of [["chunked_item", PNG], ["chunked_file_item", big], ["chunked_empty_item", Buffer.alloc(0)]]) {
+    const v = V[name];
+    assert.deepEqual(seal(k.enc, V.id, Buffer.from(v.plaintext, "utf8"), v.envelope.nonce), v.envelope, name);
+    assert.deepEqual(decryptHead(S, v.envelope), v.head, name);
+    assert.equal(v.head.chunks, chunkCount(v.head.size));
+    assert.equal(v.chunks.length, v.head.chunks);
+    const envelopes = [v.envelope];
+    for (const c of v.chunks) {
+      assert.equal(c.aad, chunkAad(V.id, v.head.item, c.index, v.head.chunks));
+      const slice = content.subarray(c.index * CHUNK_SIZE, (c.index + 1) * CHUNK_SIZE);
+      const env = seal(k.enc, c.aad, slice, c.nonce);
+      assert.equal(slice.length, c.plaintext_bytes);
+      assert.equal(createHash("sha256").update(env.enc).digest("hex"), c.enc_sha256, `${name} chunk ${c.index}`);
+      if (c.envelope) assert.deepEqual(env, c.envelope);
+      envelopes.push(env);
+    }
+    const back = readItem(S, envelopes);
+    assert.deepEqual(back.head, v.head);
+    assert.ok(back.content.equals(content), name);
+    // Built again with the same nonces: the same envelopes.
+    const rebuilt = buildItem(S, { ...v.head, content }, { nonces: [v.envelope.nonce, ...v.chunks.map((c) => c.nonce)] });
+    assert.deepEqual(rebuilt.envelopes, envelopes, name);
+  }
+  assert.equal(createHash("sha256").update(big).digest("hex"), V.chunked_file_item.content_sha256);
+  // Swapped, missing, extra, or from another item: refused.
+  const f = buildItem(S, { ...V.chunked_file_item.head, content: big }).envelopes;
+  assert.throws(() => readItem(S, [f[0], f[2], f[1], f[3]]), /authentication/);
+  assert.throws(() => readItem(S, f.slice(0, 3)), /parts/);
+  assert.throws(() => readItem(S, [...f, f[3]]), /parts/);
+  const other = buildItem(S, { ...V.chunked_file_item.head, item: "0".repeat(32), content: big }).envelopes;
+  assert.throws(() => readItem(S, [f[0], other[1], f[2], f[3]]), /authentication/);
+  // The largest item: 64 chunks, each envelope under the relay's limit, all of it under the queue of a chain.
+  const largest = buildItem(S, { type: "chunked", device: V.chunked_file_item.head.device, ts: 1, media: "file", mime: "application/octet-stream", name: "big.bin", content: Buffer.alloc(RELAY_FILE_MAX, 7) });
+  assert.equal(largest.envelopes.length, PARTS_MAX);
+  assert.ok(largest.envelopes.every((e) => e.enc.length <= ENC_MAX));
+  assert.ok(largest.envelopes.reduce((n, e) => n + e.enc.length, 0) < 6 * 1_048_576);
+  assert.throws(() => buildItem(S, { type: "chunked", device: V.chunked_file_item.head.device, ts: 1, media: "file", mime: "application/octet-stream", name: "big.bin", content: Buffer.alloc(RELAY_FILE_MAX + 1) }), /too big/);
 });
 
 test("images and files inside items, and chunks, are refused", () => {
   for (const c of V.refused_heads.cases) assert.throws(() => decryptHead(S, c.envelope), /Invalid head/, c.why);
-  assert.throws(() => decryptHead(S, V.refused_heads.cases[0].envelope), /travel directly/);
+  assert.throws(() => decryptHead(S, V.refused_heads.cases[0].envelope), /travel directly or in chunks/);
 });
 
 test("head validation", () => {
@@ -147,10 +201,20 @@ test("head validation", () => {
   assert.throws(() => validateHead({ ...offer, hosts: ["fe80::1"] }), /hosts/);
   assert.throws(() => validateHead({ ...offer, hosts: ["10.0.0.01"] }), /hosts/);
   assert.throws(() => validateHead({ ...offer, data: "AAAA" }), /no content/);
+  assert.throws(() => validateHead({ ...offer, chunks: 1 }), /chunks/);
   const { name, ...noName } = V.offer_file_item.head;
   assert.throws(() => validateHead(noName), /file without name/);
   const { name: imageName, ...imageNoName } = offer;
   assert.deepEqual(validateHead(imageNoName), imageNoName);
+
+  const chunked = V.chunked_file_item.head;
+  assert.deepEqual(validateHead({ ...chunked, pad: " " }), chunked);
+  assert.throws(() => validateHead({ ...chunked, chunks: 4 }), /chunks/);
+  const { chunks, ...noChunks } = chunked;
+  assert.throws(() => validateHead(noChunks), /chunks/);
+  assert.throws(() => validateHead({ ...chunked, size: RELAY_FILE_MAX + 1, chunks: 65 }), /too big/);
+  assert.throws(() => validateHead({ ...chunked, data: "AAAA" }), /chunks/);
+  assert.throws(() => validateHead({ ...V.chunked_item.head, mime: "text/plain" }), /image mime/);
 
   const reply = V.reply_item.head;
   assert.deepEqual(validateHead(reply), reply);

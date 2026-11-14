@@ -26,12 +26,18 @@ object Crypto {
     const val TAG_SIZE = 16
     const val FP_SIZE = 16
     const val PAD_BLOCK = 512
-    /** Largest text: 64 KiB. The relay carries texts only. */
+    /** Largest text: 64 KiB, in one envelope. */
     const val TEXT_MAX = 65_536
     /** Largest head plaintext: a 64 KiB text with the largest fields, padded (172 x 512). */
     const val HEAD_MAX = 88_064
     /** Largest image or file, sent directly between the devices (docs/PROTOCOL.md, section 14). */
     const val FILE_MAX = 26_214_400
+    /** Content bytes in each chunk of an image or a file sent through the relay (section 15). */
+    const val CHUNK_SIZE = 65_536
+    /** Largest image or file sent through the relay: 4 MiB, 64 chunks. */
+    const val RELAY_FILE_MAX = 4_194_304
+    /** Most parts of one item: the head, then up to 64 chunks. */
+    const val PARTS_MAX = RELAY_FILE_MAX / CHUNK_SIZE + 1
     const val QR_PREFIX = "clipway:"
     const val SUBPROTOCOL = "clipway.v1"
 
@@ -130,6 +136,12 @@ object Crypto {
 
     /** WebSocket subprotocols: "clipway.v1, clipway.p.<hex P>". The chain id never goes in a URL. */
     fun subprotocols(s: ByteArray): List<String> = listOf(SUBPROTOCOL, "clipway.p." + hex(proof(s)))
+
+    /** Number of chunks of a content sent through the relay: ceil(size / 64 KiB). */
+    fun chunkCount(size: Long): Int = ((size + CHUNK_SIZE - 1) / CHUNK_SIZE).toInt()
+
+    /** AAD of chunk [index] (from 0) of an item: binds the chain, the item, the position and the count. */
+    fun chunkAad(chainId: String, item: String, index: Int, chunks: Int): String = "clipway-chunk|$chainId|$item|$index|$chunks"
 
     /** fp = hex(HMAC-SHA256(K_mac, content)[0:16]). */
     fun fingerprint(kMac: ByteArray, content: ByteArray): String = hex(hmacSha256(kMac, content).copyOf(FP_SIZE))

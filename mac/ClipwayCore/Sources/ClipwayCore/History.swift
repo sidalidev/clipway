@@ -72,7 +72,7 @@ public struct HistoryEntry: Codable, Equatable, Identifiable, Sendable {
             return flat.isEmpty ? "Blank text" : String(flat.prefix(200))
         case .image: return name ?? "Image"
         case .file: return name ?? "File"
-        case .hello, .offer, .reply: return device
+        case .hello, .offer, .reply, .chunked: return device
         }
     }
 }

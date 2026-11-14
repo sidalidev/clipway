@@ -6,13 +6,13 @@ Clipway is one clipboard for a Mac and an Android phone (GrapheneOS first), plus
 
 No account. Everything is end-to-end encrypted with a key that only your devices hold, shown once as 12 words. The relay in the middle only passes encrypted texts along, keeps them 24 hours at most for a device that is offline, and anyone can run their own.
 
-**No media on our servers.** Nobody can check what travels end to end encrypted without an account, so the relay refuses to carry pictures or files at all: texts of 64 KB at most, nothing else. Images and files go straight from one of your devices to the other over your local network, encrypted with a key made for that one transfer. Both devices need to be on the same network, and the apps say so plainly when they are not.
+**Images and files from anywhere.** On the same network, they go straight from one of your devices to the other, encrypted with a key made for that one transfer. Otherwise, up to 4 MB, they go through the relay cut in encrypted pieces and wait there for your other device, 24 hours at most, like a text. Larger files need the same network, and the apps say so plainly.
 
 | Mac, light | Mac, dark | Android, light | Android, dark |
 |---|---|---|---|
 | ![Pair nearby on the Mac: the same code on both screens](docs/screenshots/mac/pair-nearby-code-light.png) | ![History on the Mac](docs/screenshots/mac/history-dark.png) | ![Home on Android](docs/screenshots/android/light-home.png) | ![History on Android](docs/screenshots/android/dark-history.png) |
 
-> **Status: 0.3.0, first release.** Both apps work end to end: texts through a relay, images and files directly (tested on a Mac and on the Android emulator, both ways). The reference relay `clip.sidali.dev` is online, texts only. Not yet tested on a physical phone, nor the direct transfer between two real devices on Wi-Fi. Pair nearby (Bluetooth, new in 0.2.0) is checked against the shared vectors without radio, and not yet tried between a real phone and a Mac.
+> **Status: 0.4.0.** Both apps work end to end: texts through a relay, images and files directly (tested on a Mac and on the Android emulator, both ways), and since 0.4.0 images and files of 4 MB at most through the relay when the direct way is not possible (tested with the shared vectors, the relay tests and the command line client). The reference relay `clip.sidali.dev` still runs 0.3.0, texts only, until it is updated. Not yet tested on a physical phone, nor the direct transfer between two real devices on Wi-Fi. Pair nearby (Bluetooth, new in 0.2.0) is checked against the shared vectors without radio, and not yet tried between a real phone and a Mac.
 
 ## Principles
 
@@ -27,7 +27,7 @@ Audit status: internal review only ([docs/security](docs/security)), no external
 
 - **Mac to phone, automatic.** Copy a text on the Mac: it lands in the phone's clipboard, with a quiet "Copied from <your Mac>" for 4 seconds. Images too, straight over your network, while the phone is connected. Switches on the Mac: Send automatically, Images too.
 - **Phone to Mac, one gesture.** The Quick Settings tile sends the clipboard, "Send to Mac" in the text selection menu sends the selection without copying it, and the share menu sends texts, images and files. On the Mac they go to the clipboard, or to `Downloads/Clipway` for files.
-- **Files both ways**, up to 25 MB each, directly between your devices on the same network, never through a server: Send a file or drop on the menu bar icon on the Mac, the share menu on the phone. They land in `Downloads/Clipway`.
+- **Files both ways**, up to 25 MB each directly between your devices on the same network, or up to 4 MB through the relay, encrypted, from anywhere: Send a file or drop on the menu bar icon on the Mac, the share menu on the phone. They land in `Downloads/Clipway`.
 - **Secrets stay put.** What password managers mark as concealed or transient on the Mac, and what Android marks as sensitive, is never sent.
 - **History** of the last 50 items on each device, encrypted, with an export to a ZIP file that opens without Clipway.
 - **Your key, never a burden.** Save the 12 words in your password manager (Android 14+), print a rescue kit, or show them again behind Touch ID or the phone's lock.
@@ -100,7 +100,7 @@ Put a TLS proxy in front (Caddy, nginx and Traefik examples), keep client addres
 - **Android requires one tap to send.** Since Android 10, apps cannot read the clipboard in the background, so the phone sends with the tile, the text selection menu or the share menu. Mac to phone is automatic.
 - **One Mac and one phone.** The relay forgets an item once one other device has it. With three devices, one that is offline at that moment misses it.
 - **Sizes:** texts up to 64 KB, images and files up to 25 MB.
-- **Images and files need the same network.** They go directly between the devices, on the local network, while both are on: a guest Wi-Fi that isolates its clients, a VPN, or the phone on mobile data stops them (texts still go through the relay). The apps say so.
+- **Large files need the same network.** Images and files go directly between the devices on the local network when they can. A guest Wi-Fi that isolates its clients, a VPN, the phone on mobile data, or the other device offline stops the direct way: then only those of 4 MB at most go through the relay. The apps say so.
 - **What the relay sees:** a random chain id, the time and size of each item, how many of your devices are connected, and your IP address while connected (never logged by the relay; on clip.sidali.dev the web server in front of it keeps IP addresses for 7 days). Not the content, file names or device names.
 - **The key is static.** Anyone with your 12 words can read what you send, including what they recorded earlier (no forward secrecy in version 1). If they leak, change the key (Mac: Settings, Change the key).
 - **Items waiting to leave the phone are kept in memory.** If Android stops Clipway before the relay has stored them, they stay "Sending" in history and you send them again.

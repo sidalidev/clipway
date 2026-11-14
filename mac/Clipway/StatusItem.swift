@@ -148,7 +148,7 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSWindowDelegate, NS
             return preview.count > limit ? String(preview.prefix(limit - 1)) + "…" : preview
         case .image: return entry.contentRemoved ? "Image, removed to save space" : "Image, \(Self.bytes(entry.size))"
         case .file: return "\(entry.name ?? "File"), \(Self.bytes(entry.size))"
-        case .hello, .offer, .reply: return entry.device
+        case .hello, .offer, .reply, .chunked: return entry.device
         }
     }
 
@@ -204,7 +204,7 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSWindowDelegate, NS
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = true
         panel.prompt = "Send"
-        panel.message = "Choose files to send straight to \(model.peer), on the same network. Up to 25 MB each."
+        panel.message = "Choose files to send to \(model.peer): up to 25 MB each on the same network, 4 MB otherwise."
         if panel.runModal() == .OK { model.send(files: panel.urls) }
     }
 

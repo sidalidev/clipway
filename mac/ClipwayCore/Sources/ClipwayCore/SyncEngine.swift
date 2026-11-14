@@ -35,6 +35,9 @@ public final class SyncEngine {
         let item: String
         let envelopes: [ClipwayCrypto.Envelope]
         let isHello: Bool
+        /// The history row this item updates: its own, or for an image or a file sent through the
+        /// relay after its direct offer failed, the offer's row.
+        let history: String
         var ref: Int?
         var retryAt: Int64 = 0
     }
@@ -51,6 +54,8 @@ public final class SyncEngine {
     public private(set) var devices = 0
     /// Envelopes that could not be opened or items dropped by the receive rules (Diagnostics).
     public private(set) var dropped = 0
+    /// The most parts of one item the relay takes, from welcome: 1 means images and files only go directly.
+    public private(set) var relayParts = 1
 
     /// Sends one text frame on the current connection.
     public var send: (@MainActor (String) -> Void)?
@@ -114,8 +119,9 @@ public final class SyncEngine {
     public func receive(_ text: String) -> Bool {
         guard let frame = try? RelayFrame.parse(text) else { return false }
         switch frame {
-        case let .welcome(epoch, count):
+        case let .welcome(epoch, count, parts):
             devices = count
+            relayParts = parts
             send?(RelayFrame.sync(epoch: cursor.epoch, after: cursor.after))
             if epoch != cursor.epoch {
                 cursor = Cursor(epoch: epoch, after: 0)
@@ -125,6 +131,10 @@ public final class SyncEngine {
             onPhase?()
         case let .item(seq, part, parts, _, blob):
             if part == 0 {
+                guard (1...ClipwayCrypto.partsMax).contains(parts) else {
+                    partial = nil
+                    return false
+                }
                 partial = (seq, parts, [blob])
             } else if var p = partial, p.seq == seq, p.blobs.count == part, p.parts == parts {
                 p.blobs.append(blob)
@@ -145,8 +155,8 @@ public final class SyncEngine {
             guard let i = outbox.firstIndex(where: { $0.ref == ref }) else { break }
             let sent = outbox.remove(at: i)
             if !sent.isHello {
-                seqToItem[seq] = sent.item
-                onStatus?(sent.item, devices >= 2 ? .sent : .waiting)
+                seqToItem[seq] = sent.history
+                onStatus?(sent.history, devices >= 2 ? .sent : .waiting)
             }
             advance(seq)
             pump()
@@ -163,7 +173,7 @@ public final class SyncEngine {
             switch code {
             case "too_big", "bad_request":
                 let failed = outbox.remove(at: i)
-                if !failed.isHello { onStatus?(failed.item, .failed) }
+                if !failed.isHello { onStatus?(failed.history, .failed) }
             default:
                 // rate_limited, busy, quota, incomplete: try again later.
                 outbox[i].ref = nil
@@ -176,13 +186,16 @@ public final class SyncEngine {
 
     // MARK: Sending
 
-    /// Queues an item until stored arrives. Sent at once when synced.
-    public func enqueue(_ built: ItemCodec.Built) {
-        outbox.append(Outgoing(item: built.head.item, envelopes: built.envelopes, isHello: built.head.type == .hello, ref: nil))
+    /// Queues an item until stored arrives. Sent at once when synced. history: the row its status
+    /// updates, when it is not the item's own (an image sent through the relay after its offer failed).
+    public func enqueue(_ built: ItemCodec.Built, history: String? = nil) {
+        outbox.append(Outgoing(
+            item: built.head.item, envelopes: built.envelopes, isHello: built.head.type == .hello,
+            history: history ?? built.head.item, ref: nil))
         // A clipboard is latest wins: beyond the cap, the oldest waiting items are dropped.
         while outbox.count > Self.outboxMax, let i = outbox.firstIndex(where: { $0.ref == nil }) {
             let gone = outbox.remove(at: i)
-            if !gone.isHello { onStatus?(gone.item, .failed) }
+            if !gone.isHello { onStatus?(gone.history, .failed) }
         }
         pump()
     }

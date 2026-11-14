@@ -11,12 +11,26 @@ public enum ClipwayCrypto {
     public static let tagSize = 16
     public static let fpSize = 16
     public static let padBlock = 512
-    /// Largest text: 64 KiB. The relay carries texts only.
+    /// Largest text: 64 KiB, in one envelope.
     public static let textMax = 65_536
     /// Largest head plaintext: a 64 KiB text with the largest fields, padded (172 x 512).
     public static let headMax = 88_064
     /// Largest image or file, sent directly between the devices (docs/PROTOCOL.md, section 14).
     public static let fileMax = 26_214_400
+    /// Content bytes in each chunk of an image or a file sent through the relay (section 15).
+    public static let chunkSize = 65_536
+    /// Largest image or file sent through the relay: 4 MiB, 64 chunks.
+    public static let relayFileMax = 4_194_304
+    /// Most parts of one item: the head, then up to 64 chunks.
+    public static let partsMax = relayFileMax / chunkSize + 1
+
+    /// Number of chunks of a content sent through the relay: ceil(size / 64 KiB).
+    public static func chunkCount(_ size: Int) -> Int { (size + chunkSize - 1) / chunkSize }
+
+    /// AAD of chunk `index` (from 0) of an item: binds the chain, the item, the position and the count.
+    public static func chunkAad(chainId: String, item: String, index: Int, chunks: Int) -> String {
+        "clipway-chunk|\(chainId)|\(item)|\(index)|\(chunks)"
+    }
     public static let qrPrefix = "clipway:"
     public static let subprotocol = "clipway.v1"
     public static let protocolVersion = 1

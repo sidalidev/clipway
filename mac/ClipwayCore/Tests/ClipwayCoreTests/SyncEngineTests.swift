@@ -155,6 +155,43 @@ final class SyncEngineTests: XCTestCase {
         XCTAssertEqual(kinds().last, "ack")
     }
 
+    func testChunkedItemsBothWaysAndTheirHistoryRow() throws {
+        let e = makeEngine()
+        e.connected()
+        XCTAssertEqual(e.relayParts, 1)
+        e.receive("{\"kind\":\"welcome\",\"v\":1,\"epoch\":\"e1\",\"devices\":2,\"limits\":{\"parts\":65}}")
+        XCTAssertEqual(e.relayParts, 65)
+        e.receive("{\"kind\":\"synced\",\"last\":0}")
+
+        // A photo from the phone, in 4 parts: handed over whole, once, then acknowledged.
+        let photo = Data((0..<150_000).map { UInt8($0 % 7) })
+        let fromPhone = try ItemCodec.chunked(keys: keys, device: phone, ts: clock, media: .image, mime: "image/jpeg", name: "IMG.jpg", content: photo)
+        deliver(e, seq: 1, fromPhone)
+        XCTAssertEqual(received.count, 1)
+        XCTAssertEqual(received.last?.head.type, .chunked)
+        XCTAssertEqual(received.last?.head.media, .image)
+        XCTAssertEqual(received.last?.content, photo)
+        XCTAssertEqual(kinds(), ["sync", "ack"])
+        // More parts than the protocol allows: never collected.
+        XCTAssertFalse(e.receive("{\"kind\":\"item\",\"seq\":2,\"part\":0,\"parts\":66,\"ts\":1,\"blob\":{\"nonce\":\"\(fromPhone.envelopes[0].nonce)\",\"enc\":\"\(fromPhone.envelopes[0].enc)\"}}"))
+
+        // A file sent through the relay after its offer failed: all its parts under one ref, and
+        // its status goes to the offer's history row.
+        let file = try ItemCodec.chunked(keys: keys, device: mac, ts: clock, media: .file, mime: "application/pdf", name: "a.pdf", content: Data(count: C.relayFileMax))
+        let row = C.randomId()
+        e.enqueue(file, history: row)
+        let parts = sent.filter { $0["kind"] as? String == "item" }
+        XCTAssertEqual(parts.count, 65)
+        XCTAssertEqual(parts.map { $0["part"] as! Int }, Array(0..<65))
+        XCTAssertTrue(parts.allSatisfy { $0["parts"] as? Int == 65 && $0["ref"] as? Int == parts[0]["ref"] as? Int })
+        e.receive("{\"kind\":\"stored\",\"ref\":\(parts[0]["ref"] as! Int),\"seq\":2}")
+        XCTAssertEqual(statuses.last?.0, row)
+        XCTAssertEqual(statuses.last?.1, .sent)
+        e.receive("{\"kind\":\"delivered\",\"seq\":2}")
+        XCTAssertEqual(statuses.last?.0, row)
+        XCTAssertEqual(statuses.last?.1, .delivered)
+    }
+
     func testRelayErrors() throws {
         let e = makeEngine()
         e.connected()

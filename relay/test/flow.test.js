@@ -66,7 +66,7 @@ test("a text goes from the Mac to the phone, end to end; the relay only sees an 
   phone.ws.close();
 });
 
-test("texts only: the largest text passes, anything in parts or larger is refused", async (t) => {
+test("the largest text passes in one envelope; more than 65 parts or a larger envelope is refused", async (t) => {
   const r = await relay(t);
   const k = chainKeys();
   const mac = await connect(r, k);
@@ -77,12 +77,12 @@ test("texts only: the largest text passes, anything in parts or larger is refuse
   const sent = await sendText(mac, k, largest, 1);
   assert.ok(sent.envelopes[0].enc.length <= ENC_MAX);
   assert.equal((await receiveItem(phone, k)).content.toString(), largest);
-  // An item in two parts (how images and files used to travel): too big, and nothing reaches the phone.
+  // An item in 66 parts: too big, and nothing reaches the phone.
   const offer = buildItem(k.S, { type: "text", device: device(), ts: Date.now(), content: Buffer.from("part") });
-  mac.send({ kind: "item", ref: 2, part: 0, parts: 2, blob: offer.envelopes[0] });
+  mac.send({ kind: "item", ref: 2, part: 0, parts: 66, blob: offer.envelopes[0] });
   const e = await mac.next("error");
   assert.deepEqual([e.ref, e.code], [2, "too_big"]);
-  assert.match(e.message, /images and files go directly/);
+  assert.match(e.message, /larger ones go directly/);
   // One envelope larger than a 64 KiB text: too big.
   mac.send({ kind: "item", ref: 3, part: 0, parts: 1, blob: { nonce: "00".repeat(12), enc: "A".repeat(ENC_MAX + 4) } });
   assert.deepEqual((({ ref, code }) => [ref, code])(await mac.next("error")), [3, "too_big"]);
@@ -91,6 +91,55 @@ test("texts only: the largest text passes, anything in parts or larger is refuse
   assert.equal((await r.health()).items, 1);
   mac.ws.close();
   phone.ws.close();
+});
+
+test("a 4 MiB photo goes through the relay in 65 encrypted parts; the relay sees only ciphertext", async (t) => {
+  const r = await relay(t);
+  const k = chainKeys();
+  const phone = await connect(r, k);
+  const mac = await connect(r, k);
+  const { RELAY_FILE_MAX, ENC_MAX } = await import("../crypto.js");
+  const content = randomBytes(RELAY_FILE_MAX);
+  // A JPEG marker in the clear would show if the relay saw content.
+  content.write("JFIF-marker-IMG_0042", 0);
+  const sent = upload(phone, k, { type: "chunked", device: device("Pixel", "android"), media: "image", mime: "image/jpeg", name: "IMG_0042.jpg", content }, 1);
+  assert.equal(sent.envelopes.length, 65);
+  assert.ok(sent.envelopes.every((b) => b.enc.length <= ENC_MAX));
+  await phone.next("stored");
+  const h = await r.health();
+  assert.equal(h.items, 1);
+  assert.ok(h.bytes < 6 * MIB);
+  const got = await receiveItem(mac, k);
+  assert.equal(got.frames.length, 65);
+  assert.deepEqual([got.head.type, got.head.media, got.head.name, got.head.chunks], ["chunked", "image", "IMG_0042.jpg", 64]);
+  assert.ok(got.content.equals(content));
+  const wire = JSON.stringify(got.frames);
+  assert.equal(wire.includes("IMG_0042"), false);
+  assert.equal(wire.includes(Buffer.from("JFIF-marker").toString("base64").slice(0, 12)), false);
+  // The head is padded like a short text: the relay cannot read the size from it.
+  assert.equal(Buffer.from(got.frames[0].blob.enc, "base64").length - 16, 512);
+  mac.send({ kind: "ack", seq: got.seq });
+  assert.deepEqual(await phone.next("delivered"), { kind: "delivered", seq: got.seq });
+  assert.equal((await r.health()).items, 0);
+  phone.ws.close();
+  mac.ws.close();
+});
+
+test("a photo sent while the Mac is offline waits on the relay, then comes whole in the backlog", async (t) => {
+  const r = await relay(t);
+  const k = chainKeys();
+  const phone = await connect(r, k);
+  const content = randomBytes(300_000);
+  upload(phone, k, { type: "chunked", device: device("Pixel", "android"), media: "image", mime: "image/png", content }, 1);
+  await phone.next("stored");
+  await sendText(phone, k, "and a text after it", 2, device("Pixel", "android"));
+  const mac = await connect(r, k);
+  assert.deepEqual(mac.backlogItems.map((f) => [f.seq, f.part, f.parts]), [[1, 0, 6], [1, 1, 6], [1, 2, 6], [1, 3, 6], [1, 4, 6], [1, 5, 6], [2, 0, 1]]);
+  const { readItem } = await import("../crypto.js");
+  const photo = readItem(k.S, mac.backlogItems.slice(0, 6).map((f) => f.blob));
+  assert.ok(photo.content.equals(content));
+  phone.ws.close();
+  mac.ws.close();
 });
 
 test("an offer and its reply are ordinary items for the relay, padded like a short text", async (t) => {

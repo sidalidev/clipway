@@ -1,6 +1,7 @@
 // Clipway direct transfer (see docs/PROTOCOL.md, section 14).
 //
-// Images and files never go through the relay. The sender listens on its local network and sends
+// On the same network, an image or a file does not go through the relay (otherwise it may, in
+// chunks: docs/PROTOCOL.md, section 15). The sender listens on its local network and sends
 // an offer through the relay (an ordinary encrypted item: the relay cannot tell it from a text).
 // The receiver connects to one of the addresses in the offer, proves it holds the chain's key, and
 // the sender streams the content, encrypted with a key that only exists for this transfer:

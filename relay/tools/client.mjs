@@ -4,7 +4,8 @@
 // for the Mac or the phone while the other side is tested.
 //
 //   node tools/client.mjs new                              draw a chain: 12 words and the QR text
-//   node tools/client.mjs send   --key K "some text"       send a text (or --stdin; --file PATH goes directly)
+//   node tools/client.mjs send   --key K "some text"       send a text (or --stdin; --file PATH goes directly,
+//                                                          or through the relay in chunks with --chunked)
 //   node tools/client.mjs hello  --key K --name "Test Mac" announce a device name
 //   node tools/client.mjs listen --key K [--once] [--out DIR]
 //   node tools/client.mjs erase  --key K                   DELETE /chain (Erase everything)
@@ -32,6 +33,7 @@ import {
   DEFAULT_RELAY,
   TEXT_MAX,
   FILE_MAX,
+  RELAY_FILE_MAX,
 } from "../crypto.js";
 
 const LOCAL_RELAY = "http://127.0.0.1:7710";
@@ -43,7 +45,7 @@ const USAGE = `Clipway test client
   node tools/client.mjs new    [--relay URL]
   node tools/client.mjs send   [--key K] [--relay URL] [--name N] [--kind mac|android] [--device HEX]
                                [--wait] [--timeout S] (TEXT | --text TEXT | --stdin | --file PATH [--type image|file] [--mime M]
-                               [--port P] [--hosts A,B] [--loopback])
+                               [--port P] [--hosts A,B] [--loopback] [--chunked])
   node tools/client.mjs hello  [--key K] [--relay URL] [--name N] [--kind mac|android] [--device HEX]
   node tools/client.mjs listen [--key K] [--relay URL] [--device HEX] [--once | --count N] [--timeout S]
                                [--out DIR] [--no-ack] [--epoch E --after N] [--loopback] [--extra-hosts A,B]
@@ -55,6 +57,7 @@ const USAGE = `Clipway test client
   --wait      send: wait until another device acknowledges the item ("Delivered")
   --file      send: an image or a file, directly: this computer listens (--port, any by default) and the
               relay only passes the encrypted offer; waits until the other device fetched it
+  --chunked   send --file: through the relay instead, encrypted and cut in chunks (4 MB at most)
   --hosts     send --file: the addresses listed in the offer (default: this computer's private IPv4 ones)
   --loopback  send --file: also list 127.0.0.1; listen: also connect to 127.0.0.1 (tests on one computer)
   --json      one JSON object per line on stdout
@@ -64,7 +67,7 @@ Exit codes: 0 done, 1 error, 2 timeout.`;
 // Arguments
 // ---------------------------------------------------------------------------
 
-const FLAGS = new Set(["wait", "json", "once", "stdin", "no-ack", "help", "loopback"]);
+const FLAGS = new Set(["wait", "json", "once", "stdin", "no-ack", "help", "loopback", "chunked"]);
 
 function parseArgs(argv) {
   const args = { _: [] };
@@ -246,7 +249,19 @@ async function cmdSend(type) {
     const mime = String(args.mime ?? guessMime(args.file));
     const media = args.type ?? (mime.startsWith("image/") ? "image" : "file");
     if (content.length > FILE_MAX) fail("too large: Clipway sends up to 25 MB");
-    // Images and files never go through the relay: listen here, and send only the offer.
+    if (args.chunked) {
+      // Through the relay: the head, then the content in encrypted chunks of 64 KiB.
+      if (content.length > RELAY_FILE_MAX) fail("too large for the relay: 4 MB at most, larger files go directly");
+      input = { type: "chunked", device, ts: Date.now(), media, mime, name: path.basename(args.file), content };
+    }
+  }
+  if (input) {
+    // A hello, or a file through the relay: built below.
+  } else if (args.file) {
+    const content = readFileSync(args.file);
+    const mime = String(args.mime ?? guessMime(args.file));
+    const media = args.type ?? (mime.startsWith("image/") ? "image" : "file");
+    // Directly: listen here, and send only the offer through the relay.
     let hosts = args.hosts ? String(args.hosts).split(",").map((h) => h.trim()).filter(Boolean) : undefined;
     if (args.loopback) hosts = [...(hosts ?? []), "127.0.0.1"];
     let sender;
@@ -432,6 +447,18 @@ function cmdListen() {
       out("item", { ...fields, mime: head.mime, size: head.size, fp: head.fp, text }, `Text from ${from.name}: ${text}`);
     } else if (head.type === "reply") {
       out("item", { ...fields, offer: head.offer, status: head.status }, `Reply from ${from.name}: ${head.status}`);
+    } else if (head.type === "chunked") {
+      const label = head.media === "image" ? "Image" : "File";
+      let saved = null;
+      if (outDir) {
+        saved = freeName(outDir, sanitize(head.name ?? `${head.item}.${(head.mime.split("/")[1] ?? "bin").replace(/[^a-z0-9]/g, "")}`));
+        writeFileSync(saved, content);
+      }
+      out(
+        "item",
+        { ...fields, type: head.media, mime: head.mime, name: head.name ?? null, size: head.size, fp: head.fp, saved, chunks: head.chunks, relayed: true },
+        `${label} from ${from.name}, through the relay: ${head.name ?? head.mime}, ${head.size} bytes${saved ? `, saved to ${saved}` : ""}`,
+      );
     } else {
       // An offer: fetch it directly from the device that offers it, then answer through the relay if it failed.
       ack(seq);

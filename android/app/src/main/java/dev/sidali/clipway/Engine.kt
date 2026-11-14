@@ -54,6 +54,10 @@ class Engine(
         private set
     var devices = 1
         private set
+    /** The most parts of one item the relay takes, from welcome: 1 means images and files only go directly. */
+    @Volatile
+    var relayParts = 1
+        private set
     private var wire: Wire? = null
     private var epoch = ""
 
@@ -100,6 +104,7 @@ class Engine(
             is Protocol.Incoming.Welcome -> {
                 epoch = f.epoch
                 devices = f.devices
+                relayParts = f.parts
                 events.onPresence(devices)
                 // The stored epoch (not the new one): a different epoch makes the relay send its whole queue.
                 val after = if (cursor.epoch == f.epoch) cursor.after else 0L
@@ -124,10 +129,10 @@ class Engine(
                     upload = null
                     nextPart = 0
                     outbox.remove(u.item)
-                    mine[f.seq] = u.item
+                    mine[f.seq] = u.history
                     while (mine.size > 200) mine.remove(mine.keys.first())
                     if (f.seq > cursor.after) cursor.after = f.seq
-                    events.onStored(u.item, f.seq, devices > 1)
+                    events.onStored(u.history, f.seq, devices > 1)
                     pump(now)
                 }
             }
@@ -177,7 +182,7 @@ class Engine(
                 upload = null
                 nextPart = 0
                 outbox.remove(u.item)
-                events.onRefused(u.item, f.code)
+                events.onRefused(u.history, f.code)
                 pump(now)
             }
             "incomplete" -> {
@@ -232,7 +237,11 @@ class Engine(
  * selection) and the service. An item stays here until the relay answers `stored`.
  */
 class Outbox {
-    class Pending(val item: String, val type: String, val fp: String, val parts: List<Crypto.Envelope>)
+    /**
+     * [history]: the history row this item updates. The same as [item], except for an image or a
+     * file sent through the relay after its direct offer failed: a new item, the same row.
+     */
+    class Pending(val item: String, val type: String, val fp: String, val parts: List<Crypto.Envelope>, val history: String = item)
 
     private val queue = ArrayDeque<Pending>()
 

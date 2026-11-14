@@ -2,7 +2,7 @@
 
 Passes end-to-end encrypted texts between the devices of a sync chain. It cannot read them: it only knows a random chain id, which it computes from the proof each device presents. Items wait 24 hours at most, in memory, for a device that is offline, then they are erased. Nothing is written to disk.
 
-**Texts only, never images or files.** Without accounts and with end-to-end encryption, nobody can moderate what travels, so the relay refuses to be a way to pass pictures or files around: every item is one envelope of at most the size of a 64 KB text, and anything larger or cut in parts is refused (`too_big`). Images and files go directly from one device to the other on their local network; the relay only passes the encrypted offer that tells the other device where to connect ([../docs/PROTOCOL.md](../docs/PROTOCOL.md), section 14).
+**Texts, and small images and files in encrypted chunks.** Every envelope is at most the size of a 64 KB text. An item is one envelope, or, since 0.4.0, an image or a file of 4 MB at most cut in chunks: up to 65 envelopes, queued only once all of them arrived; an upload left incomplete for 2 minutes, or whose connection closes, is dropped (`incomplete`). More parts or a larger envelope is refused (`too_big`). The relay never sees what is inside, only how many parts an item has. Devices on the same network send images and files directly; the relay then only passes the encrypted offer that tells the other device where to connect ([../docs/PROTOCOL.md](../docs/PROTOCOL.md), sections 14 and 15).
 
 Specification: [../docs/PROTOCOL.md](../docs/PROTOCOL.md), section 4. License: [AGPL-3.0](LICENSE). One dependency (`ws`), Node 22.
 
@@ -137,7 +137,7 @@ CLIPWAY_RELAY=https://clip.example.org node tools/client.mjs new     # then list
 ## What the relay sees and keeps
 
 - **Sees**: the chain id it computes from the proof, the time and size of each item, how many devices are connected, and IP addresses while connected. Items are padded to 512 bytes, and an offer looks like a short text.
-- **Never carries**: images and files. They go directly between the devices, encrypted, and never reach the relay or its host.
+- **Carries, encrypted**: texts, and images or files of 4 MB at most in chunks. It sees the number of parts of an item, so roughly the size of an image or a file, never its content, name or type. Larger ones go directly between the devices.
 - **Keeps**: complete items, encrypted, in memory, until another device acknowledges them, 24 hours pass, or newer items push them out. An erase (`DELETE /chain`) drops them at once and closes the chain's connections with 4001.
 - **Never sees**: the key, the content, file names in offers, local addresses in offers, device names or device ids: all of that is inside AES-256-GCM envelopes.
 - **Logs**: a counter line every hour (connections, items, bytes, refusals) and errors, with at most the first 6 characters of a chain id. Never an IP address, a proof, a nonce, the size of a given item or any content. Addresses live in memory only, for the per-IP counters.

@@ -12,7 +12,7 @@
 
 - The key S never leaves a device except as 12 words or a QR code shown to the user, or in nearby pairing's encrypted packet, sent over Bluetooth only after the person pressed Pair on both devices for the same code (docs/PROTOCOL.md, section 13). The relay gets P (a proof derived from S) and computes the chain id from it.
 - Every byte of content, every file name and every device name is inside an AES-256-GCM envelope.
-- The relay carries texts only (64 KB at most, one envelope per item) and refuses anything larger: images and files go directly between the devices on their local network, encrypted with a key of that transfer (section 14), and never reach a server.
+- The relay carries texts (64 KB at most, one envelope per item) and, since 0.4.0, images and files of 4 MB at most cut in encrypted chunks of 64 KiB (a chunked item of up to 65 envelopes, section 15). Images and files go directly between the devices on their local network first, encrypted with a key of that transfer (section 14); the relay is the way when that is not possible.
 - The relay stores nothing on disk and keeps an item 24 hours at most.
 - One protocol document ([docs/PROTOCOL.md](docs/PROTOCOL.md)), one set of vectors ([docs/VECTORS.json](docs/VECTORS.json)), three implementations tested against it.
 

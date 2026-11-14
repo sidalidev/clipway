@@ -97,6 +97,42 @@ test("listen and send: a text through the relay, then a file directly, between t
   assert.equal((await r.health()).items, 0, "the listener acknowledged both");
 });
 
+test("send --chunked: a photo through the relay, in encrypted chunks, without any direct connection", async (t) => {
+  const r = await relay(t);
+  const k = chainKeys();
+  const key = toQr(k.S, r.http);
+  let ready;
+  const listening = new Promise((resolve) => (ready = resolve));
+  const dir = mkdtempSync(path.join(tmpdir(), "clipway-test-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const out = path.join(dir, "received");
+  const listener = run(["listen", "--key", key, "--once", "--json", "--timeout", "20", "--out", out], {
+    onEvent: (e) => e.event === "synced" && ready(),
+  });
+  await listening;
+
+  const content = randomBytes(3_000_000);
+  const file = path.join(dir, "IMG_0042.jpg");
+  writeFileSync(file, content);
+  const sent = await run(["send", "--key", key, "--file", file, "--chunked", "--wait", "--json", "--timeout", "15"]);
+  assert.equal(sent.code, 0, sent.stderr);
+  assert.equal(sent.events[0].type, "chunked");
+  assert.equal(sent.events[0].parts, 1 + 46);
+  assert.equal(sent.events.at(-1).event, "delivered");
+
+  const heard = await listener;
+  assert.equal(heard.code, 0, heard.stderr);
+  const item = heard.events.find((e) => e.event === "item");
+  assert.deepEqual([item.type, item.mime, item.name, item.chunks, item.relayed], ["image", "image/jpeg", "IMG_0042.jpg", 46, true]);
+  assert.ok(readFileSync(item.saved).equals(content));
+
+  const big = path.join(dir, "big.bin");
+  writeFileSync(big, Buffer.alloc(4_194_305));
+  const refused = await run(["send", "--key", key, "--file", big, "--chunked"]);
+  assert.equal(refused.code, 1);
+  assert.match(refused.stderr, /4 MB at most/);
+});
+
 test("send waits for another device; listen ignores its own device's items; hello and erase", async (t) => {
   const r = await relay(t);
   const k = chainKeys();

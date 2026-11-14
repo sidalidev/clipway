@@ -8,7 +8,7 @@ import { relay, client, chainKeys, connect, device, upload, sendText, fakeBlob, 
 
 test("default limits match the protocol", () => {
   assert.equal(LIMITS.frame, 128 * 1024);
-  assert.equal(LIMITS.parts, 1);
+  assert.equal(LIMITS.parts, 65);
   assert.equal(LIMITS.text, 65_536);
   assert.equal(LIMITS.enc, 117_440);
   assert.equal(LIMITS.items, 50);
@@ -18,7 +18,7 @@ test("default limits match the protocol", () => {
   assert.equal(LIMITS.itemsPerMinute, 60);
   assert.equal(LIMITS.bytesPerHour, 60 * MIB);
   assert.equal(LIMITS.uploads, 4);
-  assert.equal(LIMITS.uploadBytes, 1 * MIB);
+  assert.equal(LIMITS.uploadBytes, 6 * MIB);
   assert.equal(LIMITS.uploadTimeout, 120_000);
   assert.equal(LIMITS.requestsPerMinute, 60);
   assert.equal(LIMITS.connectionsPerIp, 20);
@@ -57,20 +57,26 @@ test("a chain keeps 6 MiB at most (here 1500 bytes): the oldest are evicted, a l
   phone.ws.close();
 });
 
-test("an item in more than one part, or larger than a 64 KiB text, is too big", async (t) => {
+test("an item in more than 65 parts, or an envelope larger than a 64 KiB text, is too big", async (t) => {
   const r = await relay(t);
   const k = chainKeys();
   const mac = await connect(r, k);
-  const textOnly = "this relay carries texts of 64 KB at most: images and files go directly between your devices";
-  for (const [ref, parts] of [[1, 2], [2, 26], [3, 27]]) {
+  const tooBig = "this relay carries texts of 64 KB and images or files of 4 MB at most: larger ones go directly between your devices";
+  for (const [ref, parts] of [[1, 66], [2, 100], [3, 401]]) {
     mac.send({ kind: "item", ref, part: 0, parts, blob: fakeBlob() });
-    assert.deepEqual(await mac.next("error"), { kind: "error", ref, code: "too_big", message: textOnly });
+    assert.deepEqual(await mac.next("error"), { kind: "error", ref, code: "too_big", message: tooBig });
   }
   // The largest envelope passes, one more base64 group does not.
   mac.send({ kind: "item", ref: 4, part: 0, parts: 1, blob: { nonce: "00".repeat(12), enc: "A".repeat(LIMITS.enc) } });
   assert.equal((await mac.next("stored")).ref, 4);
   mac.send({ kind: "item", ref: 5, part: 0, parts: 1, blob: { nonce: "00".repeat(12), enc: "A".repeat(LIMITS.enc + 4) } });
-  assert.deepEqual(await mac.next("error"), { kind: "error", ref: 5, code: "too_big", message: textOnly });
+  assert.deepEqual(await mac.next("error"), { kind: "error", ref: 5, code: "too_big", message: tooBig });
+  // Also in the middle of an item in parts: the whole upload is dropped.
+  mac.send({ kind: "item", ref: 6, part: 0, parts: 3, blob: fakeBlob() });
+  mac.send({ kind: "item", ref: 6, part: 1, parts: 3, blob: { nonce: "00".repeat(12), enc: "A".repeat(LIMITS.enc + 4) } });
+  assert.deepEqual(await mac.next("error"), { kind: "error", ref: 6, code: "too_big", message: tooBig });
+  mac.send({ kind: "item", ref: 6, part: 2, parts: 3, blob: fakeBlob() });
+  assert.equal((await mac.next("error")).code, "bad_request");
   assert.equal((await r.health()).items, 1);
   mac.ws.close();
 });
@@ -170,9 +176,8 @@ test("items per minute and bytes per hour of a chain are rate limited", async (t
   mac2.ws.close();
 });
 
-test("4 uploads in progress and 1 MiB in progress per connection (quota)", async (t) => {
-  // Uploads stay in progress only for items in several parts: allowed here to check the quota.
-  const r = await relay(t, { limits: { uploads: 2, parts: 2 } });
+test("4 uploads in progress and 6 MiB in progress per connection (quota)", async (t) => {
+  const r = await relay(t, { limits: { uploads: 2 } });
   const k = chainKeys();
   const mac = await connect(r, k);
   mac.send({ kind: "item", ref: 1, part: 0, parts: 2, blob: fakeBlob() });
@@ -188,7 +193,7 @@ test("4 uploads in progress and 1 MiB in progress per connection (quota)", async
   assert.deepEqual(mac.drain("error"), []);
   mac.ws.close();
 
-  const r2 = await relay(t, { limits: { uploadBytes: 600, parts: 2 } });
+  const r2 = await relay(t, { limits: { uploadBytes: 600 } });
   const mac2 = await connect(r2, k);
   mac2.send({ kind: "item", ref: 1, part: 0, parts: 2, blob: fakeBlob(528) });
   mac2.send({ kind: "item", ref: 2, part: 0, parts: 2, blob: fakeBlob(528) });
@@ -214,7 +219,7 @@ test("when the relay's memory is full, new uploads are busy until room is made",
 });
 
 test("an upload that never completes is dropped (incomplete), and its memory is freed", async (t) => {
-  const r = await relay(t, { maxTotalBytes: 1000, limits: { uploadTimeout: 150, parts: 2 } });
+  const r = await relay(t, { maxTotalBytes: 1000, limits: { uploadTimeout: 150 } });
   const k = chainKeys();
   const mac = await connect(r, k);
   mac.send({ kind: "item", ref: 5, part: 0, parts: 2, blob: fakeBlob(528) });
@@ -234,9 +239,35 @@ test("an upload that never completes is dropped (incomplete), and its memory is 
   mac2.ws.close();
 });
 
+test("an image left incomplete never reaches the other device, and its parts are purged", async (t) => {
+  const r = await relay(t, { limits: { uploadTimeout: 200 } });
+  const k = chainKeys();
+  const phone = await connect(r, k);
+  const mac = await connect(r, k);
+  const content = Buffer.alloc(200_000, 3);
+  const built = (await import("../crypto.js")).buildItem(k.S, { type: "chunked", device: device("Pixel", "android"), ts: Date.now(), media: "image", mime: "image/jpeg", name: "IMG.jpg", content });
+  assert.equal(built.envelopes.length, 5);
+  // Only 3 parts of 5 arrive: nothing is queued, nothing is delivered.
+  built.envelopes.slice(0, 3).forEach((blob, part) => phone.send({ kind: "item", ref: 1, part, parts: 5, blob }));
+  const e = await phone.next("error");
+  assert.deepEqual([e.ref, e.code], [1, "incomplete"]);
+  await sleep(30);
+  assert.deepEqual(mac.drain("item"), []);
+  const h = await r.health();
+  assert.deepEqual([h.items, h.bytes], [0, 0]);
+  // Sent again whole, it goes through.
+  built.envelopes.forEach((blob, part) => phone.send({ kind: "item", ref: 2, part, parts: 5, blob }));
+  assert.equal((await phone.next("stored")).ref, 2);
+  const frames = [];
+  for (let i = 0; i < 5; i++) frames.push(await mac.next("item"));
+  assert.deepEqual(frames.map((f) => [f.part, f.parts]), [[0, 5], [1, 5], [2, 5], [3, 5], [4, 5]]);
+  phone.ws.close();
+  mac.ws.close();
+});
+
 test("malformed frames get bad_request, and the upload concerned is dropped", async (t) => {
   // More malformed frames than the default tolerance (10) are sent on purpose.
-  const r = await relay(t, { limits: { badFrames: 100, parts: 4 } });
+  const r = await relay(t, { limits: { badFrames: 100 } });
   const k = chainKeys();
   const mac = await connect(r, k);
   const expectBad = async (frame, ref = null) => {

@@ -202,10 +202,10 @@ struct WhatLeavesView: View {
                 Card {
                     InfoRow(symbol: "arrow.up.circle", title: "What you copy",
                             detail: "When Send automatically is on: texts up to 64 KB, to the relay \(model.relayHost), end-to-end encrypted: only your devices hold the key.")
-                    InfoRow(symbol: "wifi", title: "Images and files: never on a server",
-                            detail: "They go straight from this Mac to your phone over your local network, encrypted with a key made for that one transfer. The relay only passes a short encrypted note that tells your phone where to fetch it, so both devices need to be on the same network. Nobody can check what travels encrypted without an account, so our relay refuses to carry pictures or files at all.")
+                    InfoRow(symbol: "wifi", title: "Images and files",
+                            detail: "On the same network, they go straight from this Mac to your phone, encrypted with a key made for that one transfer: the relay only passes a short encrypted note that tells your phone where to fetch them. Otherwise, up to 4 MB, they go through the relay \(model.relayHost) in encrypted pieces and wait there for your phone, 24 hours at most. Larger ones need the same network.")
                     InfoRow(symbol: "eye", title: "What the relay sees",
-                            detail: "A random chain id, the time and size of each item, how many of your devices are connected, and your IP address while connected. It never sees the content, file names or device names, nor whether an item is a text or a note about a file.")
+                            detail: "A random chain id, the time and size of each item, how many of your devices are connected, and your IP address while connected. For an image or a file it passes along, it sees the number of pieces, so roughly how large it is. It never sees the content, file names or device names, nor the type of an item.")
                     InfoRow(symbol: "clock", title: "How long",
                             detail: "Up to 24 hours, in the relay's memory, for a device that is offline. Then it is erased. The relay never logs your IP address. On clip.sidali.dev, the web server in front of it keeps IP addresses for 7 days.")
                     InfoRow(symbol: "dot.radiowaves.left.and.right", title: "The relay's status",

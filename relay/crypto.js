@@ -23,10 +23,20 @@ export const QR_PREFIX = "clipway:";
 
 /** Protocol version, in every message and in the WebSocket subprotocol. */
 export const PROTOCOL_VERSION = 1;
-/** Largest text (UTF-8 bytes): 64 KiB. The relay carries texts only (section 4.4). */
+/** Largest text (UTF-8 bytes): 64 KiB, in one envelope (section 3.1). */
 export const TEXT_MAX = 65_536;
-/** Largest image or file, sent directly between devices, never through the relay (section 14). */
+/** Largest image or file, sent directly between devices on their local network (section 14). */
 export const FILE_MAX = 26_214_400;
+/** Content bytes in each chunk of an image or a file sent through the relay (section 15), the last one shorter. */
+export const CHUNK_SIZE = 65_536;
+/**
+ * Largest image or file sent through the relay, cut in chunks (section 15): 4 MiB, 64 chunks. Its
+ * envelopes take 64 x 87 404 base64 characters plus the head, under the 6 MiB queue of a chain.
+ */
+export const RELAY_FILE_MAX = 4_194_304;
+/** Most chunks of one item, and most parts (the head, then the chunks). */
+export const CHUNKS_MAX = RELAY_FILE_MAX / CHUNK_SIZE;
+export const PARTS_MAX = CHUNKS_MAX + 1;
 /** The head plaintext is padded with spaces to a multiple of this many bytes. */
 export const PAD_BLOCK = 512;
 /**
@@ -40,9 +50,12 @@ export const ENC_MAX = Math.ceil((HEAD_MAX + 16) / 3) * 4;
 /** Content fingerprint size in bytes. */
 export const FP_SIZE = 16;
 
-/** What a head can be. Images and files never travel through the relay: an offer stands for them. */
-export const TYPES = Object.freeze(["text", "hello", "offer", "reply"]);
-/** What an offer offers. */
+/**
+ * What a head can be. An image or a file travels directly (an offer stands for it), or through
+ * the relay in chunks (a chunked head, followed by its chunks).
+ */
+export const TYPES = Object.freeze(["text", "hello", "offer", "reply", "chunked"]);
+/** What an offer or a chunked item carries. */
 export const MEDIA = Object.freeze(["image", "file"]);
 /** Answers to an offer, sent through the relay (only "done" also travels on the direct connection). */
 export const REPLY_STATUS = Object.freeze(["done", "unreachable", "declined", "failed"]);
@@ -224,6 +237,7 @@ export function isIPv4(host) {
  *   text:  mime, size, fp, data
  *   offer: media, mime, name (optional for an image), size, fp, port, hosts
  *   reply: offer, status
+ *   chunked: media, mime, name (optional for an image), size, fp, chunks
  */
 export function serializeHead(head) {
   const o = { v: head.v, type: head.type, item: head.item, device: { id: head.device.id, name: head.device.name, kind: head.device.kind }, ts: head.ts };
@@ -243,6 +257,13 @@ export function serializeHead(head) {
   } else if (head.type === "reply") {
     o.offer = head.offer;
     o.status = head.status;
+  } else if (head.type === "chunked") {
+    o.media = head.media;
+    o.mime = head.mime;
+    if (head.name !== undefined) o.name = head.name;
+    o.size = head.size;
+    o.fp = head.fp;
+    o.chunks = head.chunks;
   }
   return padHead(JSON.stringify(o));
 }
@@ -250,7 +271,8 @@ export function serializeHead(head) {
 /**
  * Checks a decrypted head and returns a clean copy (protocol fields only, pad dropped).
  * Throws with a short reason when a rule is broken. Unknown fields are ignored.
- * A head of type image or file (Clipway 0.2 and earlier) is refused: they travel directly now.
+ * A head of type image or file (Clipway 0.2 and earlier) is refused: an image or a file travels
+ * directly (offer) or in chunks (chunked), and a chunks field is only valid in a chunked head.
  */
 export function validateHead(h) {
   const fail = (why) => {
@@ -258,7 +280,8 @@ export function validateHead(h) {
   };
   if (!h || typeof h !== "object" || Array.isArray(h)) fail("not an object");
   if (h.v !== PROTOCOL_VERSION) fail("unknown version");
-  if (!TYPES.includes(h.type)) fail(MEDIA.includes(h.type) ? "images and files travel directly" : "unknown type");
+  if (!TYPES.includes(h.type)) fail(MEDIA.includes(h.type) ? "images and files travel directly or in chunks" : "unknown type");
+  if (h.type !== "chunked" && h.chunks !== undefined) fail("chunks");
   if (!isValidId(h.item)) fail("item");
   const d = h.device;
   if (!d || typeof d !== "object" || !isValidId(d.id)) fail("device.id");
@@ -282,19 +305,24 @@ export function validateHead(h) {
     if (h.mime !== TEXT_MIME) fail("text mime");
     if (h.size > TEXT_MAX) fail("too big");
     if (h.name !== undefined) fail("text with name");
-    if (h.chunks !== undefined) fail("chunks");
     if (typeof h.data !== "string" || h.data.length % 4 !== 0 || !RE_BASE64.test(h.data)) fail("data");
     if (Buffer.from(h.data, "base64").length !== h.size) fail("data length");
     return Object.assign(clean, { mime: h.mime, size: h.size, fp: h.fp, data: h.data });
   }
 
-  // offer
+  // offer and chunked
   if (!MEDIA.includes(h.media)) fail("media");
   if (h.media === "image" && !h.mime.startsWith("image/")) fail("image mime");
-  if (h.size > FILE_MAX) fail("too big");
+  if (h.size > (h.type === "chunked" ? RELAY_FILE_MAX : FILE_MAX)) fail("too big");
   if (h.media === "file" && h.name === undefined) fail("file without name");
   if (h.name !== undefined && (typeof h.name !== "string" || h.name.length < 1 || [...h.name].length > NAME_MAX)) fail("name");
-  if (h.data !== undefined) fail("an offer carries no content");
+  if (h.data !== undefined) fail(h.type === "chunked" ? "the content is in the chunks" : "an offer carries no content");
+  if (h.type === "chunked") {
+    if (h.chunks !== chunkCount(h.size)) fail("chunks");
+    Object.assign(clean, { media: h.media, mime: h.mime });
+    if (h.name !== undefined) clean.name = h.name;
+    return Object.assign(clean, { size: h.size, fp: h.fp, chunks: h.chunks });
+  }
   if (!Number.isSafeInteger(h.port) || h.port < 1 || h.port > 65_535) fail("port");
   if (!Array.isArray(h.hosts) || h.hosts.length < 1 || h.hosts.length > HOSTS_MAX || !h.hosts.every(isIPv4)) fail("hosts");
   Object.assign(clean, { media: h.media, mime: h.mime });
@@ -321,14 +349,26 @@ export function decryptHead(S, envelope) {
   return validateHead(obj);
 }
 
+/** Number of chunks of a content of `size` bytes sent through the relay: ceil(size / 64 KiB). */
+export function chunkCount(size) {
+  return Math.ceil(size / CHUNK_SIZE);
+}
+
+/** AAD of chunk `index` (from 0) of an item: binds the chain, the item, the position and the count. */
+export function chunkAad(chainId, item, index, chunks) {
+  return `clipway-chunk|${chainId}|${item}|${index}|${chunks}`;
+}
+
 /**
- * Builds the one envelope of an item, ready to be sent to the relay.
+ * Builds the envelopes of an item, ready to be sent to the relay.
  * input: { type, item?, device: { id, name, kind }, ts, ...fields }
- *   text:  content (Buffer, UTF-8, at most 64 KiB)
- *   offer: media, mime, name?, content (Buffer: only its size and fingerprint go in the offer), port, hosts
- *   reply: offer, status
- * options.nonce: a fixed nonce (tests and vectors only).
- * Returns { head, headJson, envelopes } (one envelope).
+ *   text:    content (Buffer, UTF-8, at most 64 KiB)
+ *   offer:   media, mime, name?, content (Buffer: only its size and fingerprint go in the offer), port, hosts
+ *   reply:   offer, status
+ *   chunked: media, mime, name?, content (Buffer, at most 4 MiB): the head, then one envelope per chunk
+ * options.nonce: a fixed nonce for the head; options.nonces: fixed nonces for every part, the head
+ * first (tests and vectors only).
+ * Returns { head, headJson, envelopes } (one envelope, or 1 + chunks for a chunked item).
  */
 export function buildItem(S, input, options = {}) {
   const { mac } = deriveKeys(S);
@@ -350,21 +390,55 @@ export function buildItem(S, input, options = {}) {
   } else if (input.type === "reply") {
     Object.assign(head, { offer: input.offer, status: input.status });
   }
+  let content = null;
+  if (input.type === "chunked") {
+    content = Buffer.from(input.content ?? Buffer.alloc(0));
+    Object.assign(head, { media: input.media, mime: input.mime });
+    if (input.name !== undefined) head.name = input.name;
+    Object.assign(head, { size: content.length, fp: fingerprint(mac, content), chunks: chunkCount(content.length) });
+  }
   validateHead(head);
   const headJson = serializeHead(head);
   if (Buffer.byteLength(headJson, "utf8") > HEAD_MAX) throw new Error("Invalid head: too large");
-  return { head, headJson, envelopes: [encryptHead(S, headJson, options.nonce ?? options.nonces?.[0])] };
+  const envelopes = [encryptHead(S, headJson, options.nonce ?? options.nonces?.[0])];
+  if (content) {
+    const { enc } = deriveKeys(S);
+    const id = deriveId(S);
+    for (let i = 0; i < head.chunks; i++) {
+      const slice = content.subarray(i * CHUNK_SIZE, Math.min(content.length, (i + 1) * CHUNK_SIZE));
+      envelopes.push(seal(enc, chunkAad(id, head.item, i, head.chunks), slice, options.nonces?.[i + 1]));
+    }
+  }
+  return { head, headJson, envelopes };
 }
 
 /**
- * Reads one item from its envelopes (exactly one). Checks the size and fingerprint of a text.
+ * Reads one item from its envelopes: one, or the head and its chunks for a chunked item. Checks
+ * the size and fingerprint of a text or of the content put back together from the chunks.
  * Returns { head, content } (content null for hello, offer and reply).
  */
 export function readItem(S, envelopes) {
-  if (!Array.isArray(envelopes) || envelopes.length !== 1) throw new Error("Invalid item: one part expected");
+  if (!Array.isArray(envelopes) || envelopes.length < 1 || envelopes.length > PARTS_MAX) throw new Error("Invalid item: wrong number of parts");
   const head = decryptHead(S, envelopes[0]);
-  if (head.type !== "text") return { head, content: null };
-  const content = Buffer.from(head.data, "base64");
+  const parts = head.type === "chunked" ? 1 + head.chunks : 1;
+  if (envelopes.length !== parts) throw new Error("Invalid item: wrong number of parts");
+  if (head.type !== "text" && head.type !== "chunked") return { head, content: null };
+  let content;
+  if (head.type === "chunked") {
+    const { enc } = deriveKeys(S);
+    const id = deriveId(S);
+    const chunks = [];
+    for (let i = 0; i < head.chunks; i++) {
+      const chunk = open(enc, chunkAad(id, head.item, i, head.chunks), envelopes[i + 1]);
+      // Every chunk is full but the last, which is not empty.
+      const expected = i < head.chunks - 1 ? CHUNK_SIZE : head.size - i * CHUNK_SIZE;
+      if (chunk.length !== expected) throw new Error("Invalid item: size mismatch");
+      chunks.push(chunk);
+    }
+    content = Buffer.concat(chunks);
+  } else {
+    content = Buffer.from(head.data, "base64");
+  }
   if (content.length !== head.size) throw new Error("Invalid item: size mismatch");
   if (fingerprint(deriveKeys(S).mac, content) !== head.fp) throw new Error("Invalid item: fingerprint mismatch");
   return { head, content };

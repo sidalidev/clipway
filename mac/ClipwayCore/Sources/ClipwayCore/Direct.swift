@@ -2,8 +2,8 @@ import CryptoKit
 import Darwin
 import Foundation
 
-/// Direct transfer of images and files (docs/PROTOCOL.md, section 14). They never go through the
-/// relay: the sender listens on the local network and sends an offer through the relay; the
+/// Direct transfer of images and files (docs/PROTOCOL.md, section 14), tried first; when it fails,
+/// they go through the relay in chunks (section 15). The sender listens on the local network and sends an offer through the relay; the
 /// receiver connects, proves it holds the chain key, and the content comes encrypted with a key of
 /// that transfer only. BSD sockets on background threads; tested against docs/VECTORS.json and on
 /// the loopback interface.

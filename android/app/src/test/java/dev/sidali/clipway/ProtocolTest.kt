@@ -33,6 +33,7 @@ class ProtocolTest {
             media = if (o.has("media")) o.getString("media") else null, port = o.optInt("port", 0),
             hosts = o.optJSONArray("hosts")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList(),
             offer = if (o.has("offer")) o.getString("offer") else null, status = if (o.has("status")) o.getString("status") else null,
+            chunks = o.optInt("chunks", 0),
         )
     }
 
@@ -46,7 +47,7 @@ class ProtocolTest {
     /** The native serializer writes the vector plaintext byte for byte (reference order, JSON.stringify). */
     @Test
     fun headsSerializeLikeTheVectors() {
-        for (name in listOf("text_item", "hello_item", "offer_item", "offer_file_item", "reply_item")) {
+        for (name in listOf("text_item", "hello_item", "offer_item", "offer_file_item", "reply_item", "chunked_item", "chunked_file_item", "chunked_empty_item")) {
             val item = v.getJSONObject(name)
             val head = headOf(item.getJSONObject("head"))
             assertEquals(name, item.getString("plaintext"), Crypto.padHead(Protocol.serialize(head)))
@@ -78,6 +79,64 @@ class ProtocolTest {
         val rh = headOf(r.getJSONObject("head"))
         val reply = Protocol.reply(keys, rh.device, rh.ts, rh.offer!!, rh.status!!, rh.item, Crypto.fromHex(r.getJSONObject("envelope").getString("nonce")))
         assertEquals(env(r.getJSONObject("envelope")), reply.parts.single())
+    }
+
+    private fun sha256Hex(s: String) = Crypto.hex(Crypto.sha256(s.toByteArray(Charsets.UTF_8)))
+
+    /** Images and files through the relay: the head and its chunks, byte for byte, then opened. */
+    @Test
+    fun chunkedItemsMatchTheVectors() {
+        val big = ByteArray(150_000) { (it % 251).toByte() }
+        val png = Crypto.open(keys.enc, v.getJSONObject("chunked_item").getJSONArray("chunks").getJSONObject(0).getString("aad"),
+            env(v.getJSONObject("chunked_item").getJSONArray("chunks").getJSONObject(0).getJSONObject("envelope")))
+        for ((name, content) in listOf("chunked_item" to png, "chunked_file_item" to big, "chunked_empty_item" to ByteArray(0))) {
+            val o = v.getJSONObject(name)
+            val h = headOf(o.getJSONObject("head"))
+            val chunks = o.getJSONArray("chunks")
+            assertEquals(name, Crypto.chunkCount(h.size), h.chunks)
+            assertEquals(name, h.chunks, chunks.length())
+            val nonces = listOf(Crypto.fromHex(o.getJSONObject("envelope").getString("nonce"))) +
+                (0 until chunks.length()).map { Crypto.fromHex(chunks.getJSONObject(it).getString("nonce")) }
+            val built = Protocol.chunked(keys, h.device, h.ts, h.media!!, h.mime, h.name, content, h.item, nonces)
+            assertEquals(name, 1 + h.chunks, built.parts.size)
+            assertEquals(name, env(o.getJSONObject("envelope")), built.parts[0])
+            for (i in 0 until chunks.length()) {
+                val c = chunks.getJSONObject(i)
+                assertEquals(c.getString("aad"), Crypto.chunkAad(keys.chainId, h.item, i, h.chunks))
+                assertEquals("$name chunk $i", c.getString("enc_sha256"), sha256Hex(built.parts[i + 1].enc))
+                if (c.has("envelope")) assertEquals(env(c.getJSONObject("envelope")), built.parts[i + 1])
+            }
+            val opened = Protocol.open(keys, built.parts, h.ts + 1000, me, Protocol.Seen()) as Protocol.Opened.Ok
+            assertEquals("chunked", opened.head.type)
+            assertArrayEquals(name, content, opened.content)
+        }
+        assertEquals(v.getJSONObject("chunked_file_item").getString("content_sha256"), Crypto.hex(Crypto.sha256(big)))
+        // Swapped, missing, extra, or a chunk of another item: never handed over.
+        val h = headOf(v.getJSONObject("chunked_file_item").getJSONObject("head"))
+        val p = Protocol.chunked(keys, h.device, now, "file", h.mime, h.name, big).parts
+        val other = Protocol.chunked(keys, h.device, now, "file", h.mime, h.name, big).parts
+        fun dropped(parts: List<Crypto.Envelope>) = (Protocol.open(keys, parts, now, me, Protocol.Seen()) as Protocol.Opened.Dropped).why
+        assertEquals(Protocol.Drop.Unreadable, dropped(listOf(p[0], p[2], p[1], p[3])))
+        assertEquals(Protocol.Drop.Parts, dropped(p.take(3)))
+        assertEquals(Protocol.Drop.Parts, dropped(p + p[3]))
+        assertEquals(Protocol.Drop.Unreadable, dropped(listOf(p[0], other[1], p[2], p[3])))
+        // The largest one: 65 parts, each under the relay's envelope limit; one byte more is refused.
+        val largest = Protocol.chunked(keys, mac, now, "file", "application/zip", "big.zip", ByteArray(Crypto.RELAY_FILE_MAX))
+        assertEquals(v.getJSONObject("limits").getInt("parts"), largest.parts.size)
+        assertTrue(largest.parts.all { it.enc.length <= v.getJSONObject("limits").getInt("enc") })
+        try {
+            Protocol.chunked(keys, mac, now, "file", "application/zip", "big.zip", ByteArray(Crypto.RELAY_FILE_MAX + 1))
+            fail("over 4 MiB accepted")
+        } catch (e: IllegalArgumentException) {
+            // expected
+        }
+        // What fits the relay: 4 MiB at most, and only on a relay that takes 65 parts.
+        assertTrue(Protocol.fitsRelay(Crypto.RELAY_FILE_MAX.toLong(), 65))
+        assertFalse(Protocol.fitsRelay(Crypto.RELAY_FILE_MAX + 1L, 65))
+        assertFalse(Protocol.fitsRelay(100_000, 1))
+        assertTrue(Protocol.fitsRelay(0, 1))
+        assertEquals(Crypto.CHUNK_SIZE, v.getJSONObject("limits").getInt("chunk"))
+        assertEquals(Crypto.RELAY_FILE_MAX, v.getJSONObject("limits").getInt("relay_file"))
     }
 
     @Test
@@ -203,6 +262,15 @@ class ProtocolTest {
         bad("""{"v":1,"type":"file","item":"00112233445566778899aabbccddeeff",$dev,"ts":1,"mime":"application/pdf","name":"a","size":1,"fp":"$fp","data":"YQ=="}""")
         bad("""{"v":1,"type":"image","item":"00112233445566778899aabbccddeeff",$dev,"ts":1,"mime":"image/png","size":1,"fp":"$fp","data":"YQ=="}""")
         bad("""{"v":1,"type":"text","item":"00112233445566778899aabbccddeeff",$dev,"ts":1,"mime":"text/plain","size":1,"fp":"$fp","data":"YQ==","chunks":1}""")
+        val chunked = """"type":"chunked","item":"00112233445566778899aabbccddeeff",$dev,"ts":1,"fp":"$fp""""
+        assertEquals(2, Protocol.parseHead("""{"v":1,$chunked,"media":"image","mime":"image/png","size":70000,"chunks":2}""").chunks)
+        bad("""{"v":1,$chunked,"media":"image","mime":"image/png","size":70000,"chunks":1}""")
+        bad("""{"v":1,$chunked,"media":"image","mime":"image/png","size":70000}""")
+        bad("""{"v":1,$chunked,"media":"image","mime":"text/plain","size":70000,"chunks":2}""")
+        bad("""{"v":1,$chunked,"media":"file","mime":"text/plain","size":70000,"chunks":2}""")
+        bad("""{"v":1,$chunked,"media":"image","mime":"image/png","size":4194305,"chunks":65}""")
+        bad("""{"v":1,$chunked,"media":"image","mime":"image/png","size":1,"chunks":1,"data":"YQ=="}""")
+        bad("""{"v":1,$chunked,"media":"image","mime":"image/png","size":1,"chunks":"1"}""")
         val offer = """"type":"offer","item":"00112233445566778899aabbccddeeff",$dev,"ts":1,"size":1,"fp":"$fp""""
         bad("""{"v":1,$offer,"media":"video","mime":"video/mp4","port":1,"hosts":["10.0.0.1"]}""")
         bad("""{"v":1,$offer,"media":"image","mime":"application/pdf","port":1,"hosts":["10.0.0.1"]}""")
@@ -214,6 +282,7 @@ class ProtocolTest {
         bad("""{"v":1,$offer,"media":"image","mime":"image/png","port":1,"hosts":["10.0.0.01"]}""")
         bad("""{"v":1,$offer,"media":"image","mime":"image/png","port":1,"hosts":["10.0.0.1"],"data":"YQ=="}""")
         assertEquals(41234, Protocol.parseHead("""{"v":1,$offer,"media":"image","mime":"image/png","port":41234,"hosts":["10.0.0.1"]}""").port)
+        bad("""{"v":1,$offer,"media":"image","mime":"image/png","port":41234,"hosts":["10.0.0.1"],"chunks":1}""")
         bad("""{"v":1,"type":"reply","item":"00112233445566778899aabbccddeeff",$dev,"ts":1,"offer":"00112233445566778899aabbccddeeff","status":"maybe"}""")
         bad("""{"v":1,"type":"reply","item":"00112233445566778899aabbccddeeff",$dev,"ts":1,"offer":"x","status":"done"}""")
         bad("""{"v":1,"type":"hello","item":"0011",$dev,"ts":1}""")
@@ -311,6 +380,9 @@ class ProtocolTest {
         val w = Protocol.parseFrame(f.getJSONObject("welcome").toString()) as Protocol.Incoming.Welcome
         assertEquals("5f3a9c0d1e2b4a68", w.epoch)
         assertEquals(2, w.devices)
+        assertEquals(65, w.parts)
+        assertEquals(1, (Protocol.parseFrame("""{"kind":"welcome","v":1,"epoch":"e","devices":1,"limits":{"parts":1}}""") as Protocol.Incoming.Welcome).parts)
+        assertEquals(1, (Protocol.parseFrame("""{"kind":"welcome","v":1,"epoch":"e","devices":1}""") as Protocol.Incoming.Welcome).parts)
         assertEquals(42L, (Protocol.parseFrame(f.getJSONObject("synced").toString()) as Protocol.Incoming.Synced).last)
         val d = Protocol.parseFrame(f.getJSONObject("delivery").toString()) as Protocol.Incoming.Item
         assertEquals(43L, d.seq)
@@ -325,6 +397,8 @@ class ProtocolTest {
         val up = f.getJSONObject("upload")
         val built = JSONObject(Protocol.Frames.item(up.getInt("ref"), up.getInt("part"), up.getInt("parts"), env(up.getJSONObject("blob"))))
         assertEquals(up.toString(), built.toString())
+        val upChunk = f.getJSONObject("upload_chunked")
+        assertEquals(upChunk.toString(), JSONObject(Protocol.Frames.item(upChunk.getInt("ref"), upChunk.getInt("part"), upChunk.getInt("parts"), env(upChunk.getJSONObject("blob")))).toString())
         assertEquals(f.getJSONObject("sync").toString(), JSONObject(Protocol.Frames.sync("5f3a9c0d1e2b4a68", 41)).toString())
         assertEquals(f.getJSONObject("ack").toString(), JSONObject(Protocol.Frames.ack(43)).toString())
         assertEquals(f.getJSONObject("ping").toString(), JSONObject(Protocol.Frames.PING).toString())

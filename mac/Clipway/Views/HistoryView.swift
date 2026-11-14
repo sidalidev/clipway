@@ -161,7 +161,7 @@ struct HistoryRow: View {
         case .text: return entry.preview
         case .image: return entry.name ?? "Image"
         case .file: return entry.name ?? "File"
-        case .hello, .offer, .reply: return entry.device
+        case .hello, .offer, .reply, .chunked: return entry.device
         }
     }
 

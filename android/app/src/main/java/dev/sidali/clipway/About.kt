@@ -252,7 +252,7 @@ fun LeavesScreen(onBack: () -> Unit) {
     val host = remember { Protocol.relayHost(Prefs(context).relay) }
     Screen(stringResource(R.string.what_leaves), onBack) {
         Leave(stringResource(R.string.leaves_sent_title), stringResource(R.string.leaves_sent_body, host), stringResource(R.string.leaves_encrypted))
-        Leave(stringResource(R.string.leaves_direct_title), stringResource(R.string.leaves_direct_body), stringResource(R.string.leaves_encrypted))
+        Leave(stringResource(R.string.leaves_direct_title), stringResource(R.string.leaves_direct_body, host), stringResource(R.string.leaves_encrypted))
         Leave(stringResource(R.string.leaves_received_title), stringResource(R.string.leaves_received_body, host), stringResource(R.string.leaves_encrypted))
         Leave(stringResource(R.string.leaves_relay_title), stringResource(R.string.leaves_relay_body), null)
         Leave(stringResource(R.string.leaves_time_title), stringResource(R.string.leaves_time_body), null)

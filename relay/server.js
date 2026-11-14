@@ -1,14 +1,15 @@
 // Clipway relay (see docs/PROTOCOL.md, section 4).
 //
-// Role: pass encrypted texts between the devices of a chain, and keep them for a device that
+// Role: pass encrypted items between the devices of a chain, and keep them for a device that
 // is offline (24 h at most, in memory only, never on disk). The relay only knows the chain id,
 // which it computes from the proof P each device presents. It cannot read anything: items are
 // AES-256-GCM envelopes sealed with a key it never sees.
 //
-// Texts only. Nobody can moderate what travels end to end encrypted without an account, so this
-// relay refuses to carry images and files at all: an item is one envelope of at most the size of
-// a 64 KiB text, and anything larger or in several parts is refused. Images and files go directly
-// between the devices on their local network (docs/PROTOCOL.md, section 14).
+// An item is one envelope (a text, a hello, an offer, a reply), or up to 65 envelopes for an image
+// or a file of 4 MB at most cut in chunks (docs/PROTOCOL.md, section 15). Each envelope is at
+// most the size of a 64 KiB text, and an item is queued only once all its parts arrived: an
+// upload left incomplete is dropped after 2 minutes, or when its connection closes. The devices
+// send larger images and files directly on their local network (section 14).
 //
 // The chain id never travels, and P never travels in a URL (proxy access logs would write it):
 //   WebSocket: Sec-WebSocket-Protocol "clipway.v1, clipway.p.<hex P>"
@@ -34,7 +35,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer, WebSocket } from "ws";
-import { idFromProof, PROTOCOL_VERSION, TEXT_MAX, ENC_MAX } from "./crypto.js";
+import { idFromProof, PROTOCOL_VERSION, TEXT_MAX, ENC_MAX, PARTS_MAX } from "./crypto.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const VERSION = JSON.parse(readFileSync(path.join(HERE, "package.json"), "utf8")).version;
@@ -54,15 +55,15 @@ const RE_EPOCH = /^(?:[0-9a-f]{16})?$/;
 const REF_MAX = 2 ** 31 - 1;
 /** Room kept in a frame for the fields the relay adds when it forwards a part (seq, ts). */
 const FRAME_SLACK = 256;
-/** Why an item larger than a text, or in several parts, is refused. */
-const TEXT_ONLY = "this relay carries texts of 64 KB at most: images and files go directly between your devices";
+/** Why an item in too many parts, or an envelope larger than a text, is refused. */
+const TOO_BIG = "this relay carries texts of 64 KB and images or files of 4 MB at most: larger ones go directly between your devices";
 
 /** Limits. Clients read the first seven from welcome and from /.well-known/clipway-relay.json. */
 export const LIMITS = Object.freeze({
   /** Largest WebSocket frame, both ways: one envelope of the largest text, and the frame around it. */
   frame: 128 * 1024,
-  /** Parts of one item: one. Nothing is cut in chunks any more (images and files travel directly). */
-  parts: 1,
+  /** Parts of one item: the head, then up to 64 chunks of an image or a file of 4 MiB at most. */
+  parts: PARTS_MAX,
   /** Largest text (UTF-8 bytes) the apps send. */
   text: TEXT_MAX,
   /** Largest enc string of an envelope: the head of a 64 KiB text, padded, encrypted, in base64. */
@@ -77,9 +78,9 @@ export const LIMITS = Object.freeze({
   /** Items uploaded per chain per minute, and bytes (enc) per chain per hour. */
   itemsPerMinute: 60,
   bytesPerHour: 60 * MIB,
-  /** Uploads in progress per connection, and their bytes (decoded ciphertext). */
+  /** Uploads in progress per connection, and their bytes (decoded ciphertext): room for a 4 MiB file. */
   uploads: 4,
-  uploadBytes: 1 * MIB,
+  uploadBytes: 6 * MIB,
   /** An upload that is not complete after this long is dropped. */
   uploadTimeout: 2 * MINUTE,
   /** Requests per IP per minute (WebSocket upgrades, DELETE /chain, other HTTP). */
@@ -402,8 +403,9 @@ export function start(options = {}) {
     protocol: PROTOCOL_VERSION,
     version: VERSION,
     status: "ok",
-    // 0.3.0: older apps sent images and files through the relay, which refuses them now.
-    minClient: { android: "0.3.0", mac: "0.3.0" },
+    // 0.4.0: images and files of 4 MB at most come through the relay in chunks, which 0.3.0 apps
+    // cannot read (the Mac drops them, the phone leaves them waiting for 24 hours).
+    minClient: { android: "0.4.0", mac: "0.4.0" },
     limits: publicLimits(),
   });
 
@@ -663,10 +665,10 @@ export function start(options = {}) {
     const { ref, part, parts, blob } = msg;
     if (!isInt(ref, 0, REF_MAX)) return refuse(ws, null, "bad_request", "ref: integer from 0 to 2^31 - 1 expected");
     if (!isInt(parts, 1)) return refuse(ws, ref, "bad_request", "parts: integer from 1 expected");
-    if (parts > L.parts) return refuse(ws, ref, "too_big", TEXT_ONLY);
+    if (parts > L.parts) return refuse(ws, ref, "too_big", TOO_BIG);
     if (!isInt(part, 0, parts - 1)) return refuse(ws, ref, "bad_request", "part: integer from 0 to parts - 1 expected");
     if (!isBlob(blob)) return refuse(ws, ref, "bad_request", "blob: { nonce: 24 hex, enc: base64 } expected");
-    if (blob.enc.length > L.enc || blob.enc.length + FRAME_SLACK > L.frame) return refuse(ws, ref, "too_big", TEXT_ONLY);
+    if (blob.enc.length > L.enc || blob.enc.length + FRAME_SLACK > L.frame) return refuse(ws, ref, "too_big", TOO_BIG);
 
     const now = Date.now();
     let up = s.uploads.get(ref);

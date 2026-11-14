@@ -6,7 +6,7 @@ services:
   relay:
     build:
       context: ../relay
-    image: clipway-relay:0.3.0
+    image: clipway-relay:0.4.0
     container_name: clipway-relay
     restart: unless-stopped
     read_only: true

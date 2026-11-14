@@ -448,6 +448,7 @@ class ClipService : Service() {
         }
 
         override fun onSynced() {
+            engine?.relayParts?.let { if (it != prefs.relayParts) prefs.relayParts = it }
             attempts = 0
             setLink(Status.Link.Online)
             releaseWake()

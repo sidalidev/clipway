@@ -86,8 +86,17 @@ final class AppModel {
     @ObservationIgnored private let pasteboard = Pasteboard()
     @ObservationIgnored private let client = RelayClient()
     @ObservationIgnored private var engine: SyncEngine?
-    /// Images and files are served from here, on the local network, never through the relay (section 14).
+    /// Images and files are served from here, on the local network, when the phone can fetch them directly (section 14).
     @ObservationIgnored private let direct = Direct.Server()
+    /// What an open offer would send through the relay if the phone cannot fetch it directly (section 15).
+    @ObservationIgnored private var fallbacks: [String: Fallback] = [:]
+
+    struct Fallback {
+        let type: ItemType
+        let content: Data
+        let mime: String
+        let name: String?
+    }
     @ObservationIgnored private var store: HistoryStore?
     @ObservationIgnored private var echo = EchoGuard()
     @ObservationIgnored private var recency = ClipboardRecency()
@@ -355,6 +364,7 @@ final class AppModel {
         client.stop()
         engine = nil
         keys = nil
+        fallbacks = [:]
     }
 
     /// Settings > Change the key: erases the chain on the relay (the lost device keeps an empty
@@ -421,8 +431,9 @@ final class AppModel {
             }
             send(type: .text, content: bytes, mime: Head.textMime, automatic: true)
         case let .image(type):
-            // An image goes straight to the phone, so only while it is connected: an offer lasts 2 minutes.
-            guard link == .connected else {
+            // An offline phone gets the image from the relay later (4 MB at most); an old relay
+            // only passes offers, which last 2 minutes, so then only while the phone is connected.
+            guard link == .connected || (engine?.relayParts ?? 1) > 1 else {
                 show("Image not sent: your phone is offline, and images go straight to it")
                 return
             }
@@ -453,23 +464,37 @@ final class AppModel {
         if automatic && echo.isEcho(fp, now: now) { return }
         let item = ClipwayCrypto.randomId()
         let device = me
-        // Images and files: an offer through the relay, the content straight to the phone.
+        // Images and files: directly first, when the phone is online and this Mac on a local network
+        // (only an offer goes through the relay); through the relay in encrypted chunks (4 MB at most)
+        // when the phone is offline, elsewhere, or cannot reach this Mac.
         var port = 0
         var hosts: [String] = []
+        var relayed = false
         if type != .text {
+            let relayOk = content.count <= ClipwayCrypto.relayFileMax
+                && 1 + ClipwayCrypto.chunkCount(content.count) <= min(engine.relayParts, ClipwayCrypto.partsMax)
             let local = Direct.localHosts()
-            guard !local.isEmpty else {
-                show("Not sent: connect to the same Wi-Fi as your phone")
-                return
-            }
-            hosts = Array(((Self.isDebugBuild ? ["127.0.0.1"] : []) + local).prefix(Head.hostsMax))
-            do {
-                let key = try Direct.transferKey(direct: keys.direct, transfer: item)
-                port = try direct.offer(transfer: item, key: key, content: content) { [weak self] outcome in
-                    Task { @MainActor in self?.directOutcome(item, outcome) }
+            if !local.isEmpty && (engine.devices >= 2 || !relayOk) {
+                hosts = Array(((Self.isDebugBuild ? ["127.0.0.1"] : []) + local).prefix(Head.hostsMax))
+                do {
+                    let key = try Direct.transferKey(direct: keys.direct, transfer: item)
+                    port = try direct.offer(transfer: item, key: key, content: content) { [weak self] outcome in
+                        Task { @MainActor in self?.directOutcome(item, outcome) }
+                    }
+                    if relayOk { fallbacks[item] = Fallback(type: type, content: content, mime: mime, name: name) }
+                } catch {
+                    guard relayOk else {
+                        show("Not sent: Clipway could not open the local network")
+                        return
+                    }
+                    relayed = true
                 }
-            } catch {
-                show("Not sent: Clipway could not open the local network")
+            } else if relayOk {
+                relayed = true
+            } else {
+                show(local.isEmpty && content.count > ClipwayCrypto.relayFileMax && engine.relayParts > 1
+                    ? "Not sent: over 4 MB, connect to the same Wi-Fi as your phone"
+                    : "Not sent: connect to the same Wi-Fi as your phone")
                 return
             }
         }
@@ -483,14 +508,18 @@ final class AppModel {
         lastStatus = .sending
         let offerPort = port
         let offerHosts = hosts
+        let throughRelay = relayed
         Task {
             let built = try? await Task.detached(priority: .userInitiated) {
                 type == .text
                     ? try ItemCodec.build(keys: keys, type: .text, item: item, device: device, ts: now, content: content)
+                    : throughRelay
+                    ? try ItemCodec.chunked(keys: keys, item: item, device: device, ts: now, media: type, mime: mime, name: name, content: content)
                     : try ItemCodec.offer(keys: keys, item: item, device: device, ts: now, media: type, mime: mime, name: name,
                                           content: content, port: offerPort, hosts: offerHosts)
             }.value
             guard let built, self.engine === engine else {
+                self.fallbacks[item] = nil
                 self.direct.cancel(item, outcome: .failed)
                 self.statusChanged(item, .failed)
                 return
@@ -499,8 +528,34 @@ final class AppModel {
         }
     }
 
-    /// The end of a direct transfer this Mac offered (section 14.5).
+    /// Sends through the relay, in encrypted chunks, an image or a file whose direct offer failed.
+    /// A new item; its status goes to the offer's history row.
+    private func relayInstead(of offer: String, _ f: Fallback) {
+        guard let keys, let engine else { return }
+        let device = me
+        let now = Self.nowMs()
+        trace("direct transfer failed: \(f.content.count) bytes through the relay instead")
+        finishStatus(offer, .sending)
+        Task {
+            let built = try? await Task.detached(priority: .userInitiated) {
+                try ItemCodec.chunked(keys: keys, device: device, ts: now, media: f.type, mime: f.mime, name: f.name, content: f.content)
+            }.value
+            guard let built, self.engine === engine else {
+                self.finishStatus(offer, .failed)
+                return
+            }
+            engine.enqueue(built, history: offer)
+        }
+    }
+
+    /// The end of a direct transfer this Mac offered (section 14.5). If the phone could not reach
+    /// it or did not answer, a content of 4 MB at most goes through the relay instead (section 15).
     private func directOutcome(_ item: String, _ outcome: Direct.Outcome) {
+        let fallback = fallbacks.removeValue(forKey: item)
+        if let fallback, outcome != .done, outcome != .declined, link != .erasedElsewhere, isPaired {
+            relayInstead(of: item, fallback)
+            return
+        }
         let name = history.first(where: { $0.id == item }).map { $0.name ?? ($0.type == .image ? "The image" : "The file") } ?? "The item"
         switch outcome {
         case .done:
@@ -565,7 +620,7 @@ final class AppModel {
         switch code {
         case "rate_limited": show("Sending too fast: the relay will take it in a moment")
         case "quota", "busy": show("The relay is full: trying again soon")
-        case "too_big": show("Not sent: the relay carries texts of 64 KB at most")
+        case "too_big": show("Not sent: too large for the relay")
         default: break
         }
     }
@@ -592,6 +647,10 @@ final class AppModel {
         case .offer:
             fetch(head)
             return true
+        case .chunked:
+            // An image or a file that came through the relay in chunks, already put back together and checked.
+            guard let content = incoming.content else { return true }
+            return receive(head, type: head.media ?? .file, content: content)
         default:
             break
         }
@@ -621,10 +680,15 @@ final class AppModel {
     private func fetched(_ head: Head, label: String, result: Direct.Fetched) {
         let from = head.device.name
         let status: String
+        // A 0.4 sender sends a content of 4 MB at most through the relay instead: nothing to say yet.
+        let comesByRelay = (head.size ?? 0) <= ClipwayCrypto.relayFileMax && (engine?.relayParts ?? 1) > 1
         switch result {
         case .ok:
             trace("fetched directly")
             return
+        case .unreachable where comesByRelay, .failed where comesByRelay:
+            status = result == .unreachable ? "unreachable" : "failed"
+            trace("direct transfer \(status), waiting for it through the relay")
         case .unreachable:
             status = "unreachable"
             show("Couldn't receive \(label) from \(from): not on the same network")
@@ -673,7 +737,7 @@ final class AppModel {
                 return false
             }
             addToHistory(entry, image: nil)
-        case .hello, .offer, .reply:
+        case .hello, .offer, .reply, .chunked:
             break
         }
         saveState()
@@ -767,7 +831,7 @@ final class AppModel {
             } else {
                 show("This file is no longer where it was saved")
             }
-        case .hello, .offer, .reply:
+        case .hello, .offer, .reply, .chunked:
             break
         }
     }

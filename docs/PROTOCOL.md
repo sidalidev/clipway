@@ -1,8 +1,8 @@
 # Clipway: protocol and architecture (v1)
 
-Clipway is a universal clipboard between a Mac and an Android phone (GrapheneOS first): copy on the Mac, paste on the phone, and back, plus images and files. No account. Everything is end-to-end encrypted with a **sync chain** (a 128-bit secret shown as 12 words or a QR code, or passed over Bluetooth to a phone next to the Mac after both screens showed the same code). Texts pass through a **blind relay** that anyone can host. Images and files never do: they go **directly** from one device to the other on their local network (section 14).
+Clipway is a universal clipboard between a Mac and an Android phone (GrapheneOS first): copy on the Mac, paste on the phone, and back, plus images and files. No account. Everything is end-to-end encrypted with a **sync chain** (a 128-bit secret shown as 12 words or a QR code, or passed over Bluetooth to a phone next to the Mac after both screens showed the same code). Texts pass through a **blind relay** that anyone can host. Images and files go **directly** from one device to the other when both are on the same local network (section 14), and otherwise **through the relay, cut in encrypted chunks**, up to 4 MB (section 15).
 
-**No media on our servers.** Without accounts and with end-to-end encryption, nobody can moderate what travels. So the relay refuses to be a way to pass pictures or files around at all: it carries texts of 64 KB at most, one envelope per item, and refuses anything larger or cut in parts. For an image or a file, the relay only passes a short encrypted offer (where to connect, how big, which fingerprint); the content itself crosses the local network, encrypted, and never reaches a server.
+**Direct first.** For an image or a file, the sender first offers it directly: the relay only passes a short encrypted offer (where to connect, how big, which fingerprint) and the content crosses the local network, encrypted. When that is not possible (the other device is offline, on another network, or cannot connect), an image or a file of 4 MB at most goes through the relay as a **chunked item**: an encrypted head, then encrypted chunks of 64 KiB, each the size of a text envelope at most. The relay keeps the limits it has for texts (6 MiB and 24 h per chain, in memory only), sees only ciphertext, and drops an upload left incomplete. Larger files still need the same network. Clipway 0.3 refused all media on the relay; 0.4.0 accepts these chunks, so that a photo shared from anywhere reaches the other device (section 11).
 
 Three parts, one protocol:
 
@@ -14,9 +14,9 @@ Three parts, one protocol:
 
 Reference relay: `https://clip.sidali.dev` (the default in both apps, configurable). Until it is deployed, everything is tested against a local relay on `http://127.0.0.1:7710` (see "Local testing").
 
-The cryptography is the Sonne sync chain (same author, same construction, same envelope), with Clipway labels so that a Sonne chain can never be used here by mistake. Test vectors: [`docs/VECTORS.json`](VECTORS.json), written by `node tools/gen-vectors.mjs` from `relay/crypto.js` (and `relay/nearby.js` for nearby pairing, section 13, and `relay/direct.js` for the direct transfer, section 14). The Android app (`Crypto.kt`) and the Mac app (`ClipwayCore`) are tested against the same file.
+The cryptography is the Sonne sync chain (same author, same construction, same envelope), with Clipway labels so that a Sonne chain can never be used here by mistake. Test vectors: [`docs/VECTORS.json`](VECTORS.json), written by `node tools/gen-vectors.mjs` from `relay/crypto.js` (chunked items of section 15 included; `relay/nearby.js` for nearby pairing, section 13, and `relay/direct.js` for the direct transfer, section 14). The Android app (`Crypto.kt`) and the Mac app (`ClipwayCore`) are tested against the same file.
 
-Words used below: a **device** is one installation of Clipway; a **chain** is the set of devices that share the same secret S; an **item** is one encrypted envelope sent through the relay (a text, a hello, an offer or a reply); an **offer** stands for an image or a file that the receiver then fetches directly from the sender (section 14).
+Words used below: a **device** is one installation of Clipway; a **chain** is the set of devices that share the same secret S; an **item** is what one upload to the relay carries: one encrypted envelope (a text, a hello, an offer or a reply), or for a **chunked item** an encrypted head followed by its chunks, each one an envelope (a **part**); an **offer** stands for an image or a file that the receiver then fetches directly from the sender (section 14).
 
 ## 1. The sync chain
 
@@ -29,7 +29,7 @@ Words used below: a **device** is one installation of Clipway; a **chain** is th
 |---|---|---|---|
 | P, proof | `HKDF(S, info = "clipway-proof")` | 16 bytes | shown to the relay at each connection: proves the device holds S without revealing S or the keys |
 | id, chain id | `hex(SHA-256("clipway-id" ‖ P))[0:32]` | 32 hex chars | the only thing the relay knows; it computes it from P |
-| K_enc | `HKDF(S, info = "clipway-enc")` | 32 bytes | AES-256-GCM key of every envelope |
+| K_enc | `HKDF(S, info = "clipway-enc")` | 32 bytes | AES-256-GCM key of every envelope, the chunks of section 15 included |
 | K_mac | `HKDF(S, info = "clipway-mac")` | 32 bytes | HMAC-SHA256 key of the content fingerprint `fp` |
 | K_direct | `HKDF(S, info = "clipway-direct")` | 32 bytes | root of the per-transfer keys of the direct transfer (section 14) |
 
@@ -46,7 +46,7 @@ Every item is one AES-256-GCM envelope, the same format as the encrypted state o
 ```
 
 - Key: K_enc. Nonce: 12 random bytes, a new one for every envelope (never reused, never fixed outside tests).
-- AAD (authenticated, not sent): the chain id (32 ASCII characters). An envelope moved to another chain fails authentication.
+- AAD (authenticated, not sent): the chain id (32 ASCII characters). An envelope moved to another chain fails authentication. A chunk of a chunked item has its own AAD (15.2), so it can never be read as a head, nor moved to another item or position.
 - An envelope that fails to open is dropped without a retry (it can never become readable) and acknowledged so the relay forgets it. Nothing about it is shown to the user; both apps count these envelopes locally, for a Diagnostics screen to come.
 
 ## 3. Items
@@ -73,7 +73,7 @@ An item is one envelope; its plaintext, the **head**, is a JSON object, UTF-8, p
 | Field | Rule |
 |---|---|
 | `v` | `1`. Any other value: the item is dropped (and acknowledged). |
-| `type` | `"text"`, `"hello"`, `"offer"` or `"reply"`. Anything else is dropped and acknowledged, `"image"` and `"file"` included: Clipway 0.2 sent them inside items, and the relay no longer carries them. |
+| `type` | `"text"`, `"hello"`, `"offer"`, `"reply"` or `"chunked"` (since 0.4.0, section 15). Anything else is dropped and acknowledged, `"image"` and `"file"` included: Clipway 0.2 sent them inside one envelope. |
 | `item` | 16 random bytes, 32 lowercase hex, new for every item. Used for duplicates and history; for an offer, it is also the transfer id (section 14). |
 | `device.id` | 16 random bytes drawn at install, 32 lowercase hex. Only inside envelopes: the relay never sees it. A new one after Erase everything. |
 | `device.name` | 1 to 64 characters, chosen by the user (default: the Mac's computer name, the phone's model). Only inside envelopes. |
@@ -101,11 +101,13 @@ An offer carries no content (`data` is refused).
 
 **reply** answers an offer through the relay when the direct connection could not deliver it: `offer` (the offer's `item`) and `status`: `"unreachable"` (no address of the offer could be reached: the devices are not on the same network), `"declined"` (the receiver does not take it, for example too large for its storage), `"failed"` (connected, but the transfer broke). `"done"` is also a valid status, but a successful transfer is confirmed on the direct connection itself (14.3).
 
+**chunked** carries an image or a file of 4 MiB at most through the relay (section 15): `media`, `mime`, `name` and `fp` as in an offer, `size` 4 194 304 at most, and `chunks`, exactly `ceil(size / 65 536)`. No `data`, no `port`, no `hosts`. A `chunks` field in a head of another type is refused.
+
 `fp = hex(HMAC-SHA256(K_mac, content)[0:16])`, 32 hex: checked once the content is complete, then used against echo and duplicates. Unknown fields are ignored (forward compatibility).
 
 ### 3.2 Sizes
 
-Nothing is cut in parts: an item is one envelope, and the relay refuses anything else (4.4). The largest head is a 64 KiB text: its `data` is 87 384 base64 characters, the other fields take under 700 bytes (a 64-character device name made of escaped control characters included), and padding rounds it up to **88 064 bytes** (172 x 512). Its envelope's `enc` is at most **117 440** base64 characters. A device never builds a head larger than 88 064 bytes; an offer or a reply takes 512 or 1 024 bytes.
+A text, a hello, an offer and a reply are one envelope each; only a chunked item has more parts (section 15), and none of its envelopes is larger than the largest head. The largest head is a 64 KiB text: its `data` is 87 384 base64 characters, the other fields take under 700 bytes (a 64-character device name made of escaped control characters included), and padding rounds it up to **88 064 bytes** (172 x 512). Its envelope's `enc` is at most **117 440** base64 characters. A device never builds a head larger than 88 064 bytes; an offer or a reply takes 512 or 1 024 bytes.
 
 ### 3.3 Padding
 
@@ -125,6 +127,7 @@ Dropped items are acknowledged (except their own), so the relay forgets them.
 ### 3.5 What a receiver does with an item
 
 - **text**: written to the clipboard only if it is the newest text or image received (by `ts`) and its `ts` is less than 10 minutes old; otherwise it only goes to history. A phone that was offline for an hour does not get an hour-old clipboard pasted over its current one.
+- **chunked**: its head and all its chunks are opened, put back together and checked (`size`, `fp`, 15.3), then handled exactly like the content of an offer once fetched: image to the clipboard, file saved.
 - **offer**: acknowledged at once, then fetched directly (section 14). Once the content is complete and checked, it is handled like the items of Clipway 0.2: an **image** goes to the clipboard under the same rule as a text (and the "Images too" setting), a **file** is saved, never opened automatically. Mac: `~/Downloads/Clipway/`. Android: `Download/Clipway/` through MediaStore (no storage permission). The name is sanitized: path separators, control characters and a leading dot removed, trimmed to 120 characters, `file` if nothing is left; an existing name gets ` 2`, ` 3`... before the extension. On the Mac, received files carry the quarantine attribute (`LSFileQuarantineEnabled`), so Gatekeeper checks them before they run. If the transfer cannot happen, the receiver sends a reply and says it plainly (14.5).
 - **reply**: the sender stops waiting for that offer and shows why (14.5). Not shown in history on its own.
 - Every received text, image and file goes to history (section 9).
@@ -155,7 +158,7 @@ All frames are JSON objects with a `kind`. Sizes: 128 KiB (131 072 bytes) at mos
 |---|---|
 | `{ "kind": "welcome", "v": 1, "epoch": "<16 hex>", "devices": n, "limits": { "frame", "parts", "text", "enc", "items", "bytes", "ttl" } }` | right after the upgrade. `devices` counts this connection. |
 | `{ "kind": "synced", "last": s }` | after the backlog that answers `sync`. `last` = highest seq of the chain. |
-| `{ "kind": "item", "seq": s, "part": 0, "parts": 1, "ts": t, "blob": <envelope> }` | one per item, in seq order. `ts` = when the relay received the item (relay clock). `part` and `parts` stay in the frame for compatibility; they are always 0 and 1. |
+| `{ "kind": "item", "seq": s, "part": p, "parts": n, "ts": t, "blob": <envelope> }` | one per part, in seq order then part order: `parts` is 1 except for a chunked item (section 15), whose parts all come together, part 0 first. `ts` = when the relay received the item (relay clock). |
 | `{ "kind": "stored", "ref": r, "seq": s }` | to the sender, once all parts of its upload `ref` are received and queued. |
 | `{ "kind": "delivered", "seq": s }` | to the sender's connection (if still open), when another connection acknowledges the item. |
 | `{ "kind": "presence", "devices": n }` | to every connection of the chain, when the number of open connections changes. |
@@ -167,15 +170,15 @@ All frames are JSON objects with a `kind`. Sizes: 128 KiB (131 072 bytes) at mos
 | Frame | Meaning |
 |---|---|
 | `{ "kind": "sync", "epoch": "<last epoch seen, or empty>", "after": s }` | must be the first frame, within 10 s of `welcome` (else close 4003). The relay sends every complete queued item with `seq > after`, or every queued item when `epoch` differs from its own, then `synced`. Items sent by other devices before the `sync` are part of this backlog, never sent twice. |
-| `{ "kind": "item", "ref": r, "part": 0, "parts": 1, "blob": <envelope> }` | uploads the item the device numbers `r` (integer, 0 to 2^31 - 1). `parts` greater than 1 is refused with `too_big`: the relay carries one envelope per item. |
+| `{ "kind": "item", "ref": r, "part": p, "parts": n, "blob": <envelope> }` | uploads part `p` of the item the device numbers `r` (integer, 0 to 2^31 - 1). Parts come in order, from 0, on the same connection. `parts` is 1, or up to 65 (`limits.parts`) for a chunked item; more is refused with `too_big`. |
 | `{ "kind": "ack", "seq": s }` | the device has received, decrypted and handled every part of item `s` (or dropped it on purpose, see 3.4). |
 | `{ "kind": "ping" }` | application heartbeat; the relay answers `pong`. |
 
 The first frame must be `sync`: any other frame before it, `ping` included, closes the connection with 4002, and a second `sync` gets `bad_request`. A malformed `sync` gets `bad_request` and a correct one may still follow within the 10 s. After 10 malformed frames the relay closes with 4002.
 
-The relay checks only shapes and sizes: `blob` must be `{nonce: 24 hex, enc: base64}` with `enc` of **117 440 characters at most** (a 64 KiB text, 3.2); `ref`, `part`, `parts`, `seq` integers in range; `parts` equal to 1. It cannot check anything inside, so it cannot tell a text from an offer, and it cannot carry an image or a file either: they do not fit.
+The relay checks only shapes and sizes: `blob` must be `{nonce: 24 hex, enc: base64}` with `enc` of **117 440 characters at most** (a 64 KiB text, 3.2); `ref`, `part`, `parts`, `seq` integers in range; `parts` at most 65. It cannot check anything inside, so it cannot tell a text from an offer, nor a chunk from a head; it only sees how many parts an item has.
 
-When an item arrives, the relay assigns the next `seq`, queues it, answers `stored` to the uploader, and sends it to every other connection of the chain that has sent `sync`.
+When the last part of an item arrives, the relay assigns the next `seq`, queues the item, answers `stored` to the uploader, and sends all its parts to every other connection of the chain that has sent `sync`. An upload that is not complete within 2 minutes is dropped (`incomplete`), and so is any upload in progress when its connection closes: an incomplete item is never queued nor delivered.
 
 ### 4.3 Sequence numbers and epoch
 
@@ -188,7 +191,7 @@ Each device stores `(epoch, after)`. It moves `after` up to a seq once that item
 ### 4.4 Queue, retention and deletion
 
 - The relay keeps each complete item (all its parts) **in memory only**, per chain, until the first of: an `ack` from any connection other than the one that uploaded it; **24 h** after it was stored (`CLIPWAY_TTL_H`, 24 at most); eviction by the quotas below. It never writes items to disk.
-- **Texts only.** An item in more than one part, or whose `enc` is longer than 117 440 characters, is refused with `too_big` ("this relay carries texts of 64 KB at most: images and files go directly between your devices"). Images and files never reach the relay (section 14).
+- **Sizes.** An item in more than 65 parts, or with an envelope whose `enc` is longer than 117 440 characters, is refused with `too_big` ("this relay carries texts of 64 KB and images or files of 4 MB at most: larger ones go directly between your devices"). An item larger than the queue of a chain (6 MiB) is refused too.
 - Quotas per chain: **50 items** and **6 MiB** (sum of the `enc` string lengths). A new item that would exceed them evicts the oldest items first (a clipboard is "latest wins").
 - Global: total stored bytes at most `CLIPWAY_MAX_TOTAL_MB` (256 by default); beyond, new uploads get `busy` until items expire.
 - Deletion on the first foreign ack means v1 is built for one Mac and one phone. With more than two devices, a device that is offline when another device acknowledges an item misses it (documented limit; per-device delivery is a candidate for v2).
@@ -206,7 +209,7 @@ Each device stores `(epoch, after)`. It moves `after` up to a seq once that item
 | `GET /ws` | the WebSocket above. |
 | `DELETE /chain` with `X-Clipway-Proof: <hex P>` | erases the chain's queue and uploads in progress, closes its connections with code 4001 "chain erased", answers **204** (also when nothing was there: the answer does not reveal whether a chain existed). 400 if the proof is missing or malformed. Counts in the per-IP limit. |
 | `GET /health` | `{ "ok": true, "chains", "connections", "items", "bytes", "uptime", "version" }`. |
-| `GET /.well-known/clipway-relay.json` | `{ "protocol": 1, "version", "status": "ok" or "degraded" or "end-of-service", "minClient": { "android": "0.3.0", "mac": "0.3.0" }, "limits": {...} }`, cacheable 5 min. Apps read it when the relay is set and once a day (with only their fixed `User-Agent`), and show a banner if their version is below `minClient` or the status is not `ok`. `minClient` is 0.3.0 since the relay carries texts only: older apps sent images and files through it. The relay always answers `ok` for now; a setting to announce `degraded` or `end-of-service` is planned. |
+| `GET /.well-known/clipway-relay.json` | `{ "protocol": 1, "version", "status": "ok" or "degraded" or "end-of-service", "minClient": { "android": "0.4.0", "mac": "0.4.0" }, "limits": {...} }`, cacheable 5 min. Apps read it when the relay is set and once a day (with only their fixed `User-Agent`), and show a banner if their version is below `minClient` or the status is not `ok`. `minClient` is 0.4.0 since the relay carries chunked items, which 0.3 apps cannot read (section 11). The relay always answers `ok` for now; a setting to announce `degraded` or `end-of-service` is planned. |
 | `GET /.well-known/security.txt` | contact and expiry. |
 | `GET /ws` without upgrade | 426 JSON. |
 | anything else | 404 JSON. |
@@ -218,18 +221,18 @@ No CORS (only the native apps talk to the relay), security headers on every answ
 | Limit | Value |
 |---|---|
 | Frame | 128 KiB, both ways (larger: close 1009 by the WebSocket library) |
-| Item | one envelope, `enc` of 117 440 characters at most (`too_big`) |
+| Item | 65 parts at most, each an envelope with `enc` of 117 440 characters at most (`too_big`) |
 | Queue per chain | 50 items, 6 MiB, 24 h |
 | Connections per chain | 8 (429 at upgrade) |
 | Uploads per chain | 60 items per minute, 60 MiB per hour (`rate_limited`) |
 | Requests per IP | 60 per minute (WebSocket upgrades, `DELETE /chain`, other HTTP; 429) |
 | Open WebSockets | 20 per IP, 10 000 in total (429, 503) |
 | Chains held at once | 20 000 (503 for a new chain), so that random proofs cannot fill the memory |
-| Uploads in progress | 4 per connection, 1 MiB of decoded ciphertext (`quota`) |
+| Uploads in progress | 4 per connection, 6 MiB of decoded ciphertext (`quota`), 2 minutes each (`incomplete`) |
 
 Per-IP limits reduce an IPv6 address to its /64 and an IPv4-mapped address to IPv4. Behind a trusted proxy (`CLIPWAY_TRUST_PROXY=1`) the address is the last `X-Forwarded-For` entry. Addresses live in memory only, for the counters.
 
-`error` codes: `bad_request` (malformed frame, unknown kind, second `sync`), `too_big` (more than one part, an envelope larger than a 64 KiB text, an item larger than the chain quota), `rate_limited` (60 items per minute or 300 MiB per hour on the chain), `quota` (more than 4 uploads or 30 MiB in progress on the connection), `busy` (`CLIPWAY_MAX_TOTAL_MB` reached), `incomplete` (upload not finished within 2 minutes). Clients retry `rate_limited`, `quota` and `busy` later, and mark the item "Not sent" on `too_big` and `bad_request`. Close codes: 4001 chain erased, 4002 protocol violation (first frame not `sync`, binary frame, repeated malformed frames), 4003 no `sync` in time.
+`error` codes: `bad_request` (malformed frame, unknown kind, second `sync`, parts out of order), `too_big` (more than 65 parts, an envelope larger than a 64 KiB text, an item larger than the chain quota), `rate_limited` (60 items per minute or 60 MiB per hour on the chain), `quota` (more than 4 uploads or 6 MiB in progress on the connection), `busy` (`CLIPWAY_MAX_TOTAL_MB` reached), `incomplete` (upload not finished within 2 minutes). Clients retry `rate_limited`, `quota` and `busy` later, and mark the item "Not sent" on `too_big` and `bad_request`. Close codes: 4001 chain erased, 4002 protocol violation (first frame not `sync`, binary frame, repeated malformed frames), 4003 no `sync` in time.
 
 ### 4.8 Logs, environment and hosting
 
@@ -248,8 +251,8 @@ Per-IP limits reduce an IPv6 address to its /64 and an IPv4-mapped address to IP
 
 ### 5.2 Sending
 
-1. A text of 64 KiB at most: build the head (new `item`, own `device`, `ts` = now, `mime`, `size`, `fp`, `data`), pad it, seal it with a fresh nonce (AAD = chain id). A longer text is not sent: "Too long: Clipway sends texts up to 64 KB". An image or a file: section 14 (the item sent is the offer).
-2. Send it as one `item` frame with a `ref`. Keep it until `stored` arrives; if the connection drops before, send it again (same `item` id: receivers drop duplicates) after reconnecting.
+1. A text of 64 KiB at most: build the head (new `item`, own `device`, `ts` = now, `mime`, `size`, `fp`, `data`), pad it, seal it with a fresh nonce (AAD = chain id). A longer text is not sent: "Too long: Clipway sends texts up to 64 KB". An image or a file: an offer (section 14) or a chunked item (section 15), as 15.4 decides.
+2. Send its parts as `item` frames with one `ref`. Keep it until `stored` arrives; if the connection drops before, send it again (same `item` id: receivers drop duplicates) after reconnecting.
 3. Show "Sent" on `stored` when another device is connected, "Waiting for your Mac" (or phone) when `presence` is 1; switch to "Delivered" on `delivered`. For an offer, the outcome of the direct transfer decides instead (14.5).
 
 Sending is local first: the item goes to history and the screen changes before any network call.
@@ -292,14 +295,14 @@ Files already saved to Downloads are not deleted (they belong to the user now); 
 - **Phone to Mac (one gesture)**, three ways, all sending through the service:
   - **Quick Settings tile** "Send to Mac" (`TileService`, `android.permission.BIND_QUICK_SETTINGS_TILE` on the service): a tap starts `SendActivity` with `startActivityAndCollapse(PendingIntent)`. `SendActivity` is invisible (translucent, no animation, `excludeFromRecents`, `noHistory`), reads the clipboard once it has window focus (Android only allows reading the clipboard to the focused app), checks `EXTRA_IS_SENSITIVE`, sends, shows a short toast ("Sent to <Mac name>", "Waiting for <Mac name>", "Clipboard is empty", "Not sent: marked as sensitive", "Already sent"), confirms with haptics, and closes. After pairing the app offers to add the tile (`StatusBarManager.requestAddTileService`).
   - **Text selection menu**: `ProcessTextActivity` with an `android.intent.action.PROCESS_TEXT` filter (`text/plain`), label "Send to Mac". It reads `EXTRA_PROCESS_TEXT`, sends it, never changes the selection (no result set), and closes. Nothing is copied.
-  - **Share target**: `ShareActivity` for `ACTION_SEND` and `ACTION_SEND_MULTIPLE` (`text/plain`, `image/*`, `*/*`). Text becomes a text item (64 KB at most: "Too long: Clipway sends texts up to 64 KB"), images and anything else are offered directly (section 14; 25 MiB each, larger: "Too large: Clipway sends up to 25 MB"; no address on a local network: "Not sent: connect to the same Wi-Fi as your Mac"). It reads the shared URIs with the grant it received, sends, and closes.
+  - **Share target**: `ShareActivity` for `ACTION_SEND` and `ACTION_SEND_MULTIPLE` (`text/plain`, `image/*`, `*/*`). Text becomes a text item (64 KB at most: "Too long: Clipway sends texts up to 64 KB"), images and anything else go as 15.4 decides: directly (section 14) or through the relay in chunks (section 15). 25 MiB each, larger: "Too large: Clipway sends up to 25 MB"; over 4 MiB without an address on a local network: "Not sent: over 4 MB, connect to the same Wi-Fi as your Mac". It reads the shared URIs with the grant it received, sends, and closes.
 - **Screens**: first launch in 3 screens at most (what Clipway does in one sentence, then Pair). Pairing: "Pair nearby" as the one primary action (section 13: Bluetooth permissions asked at that tap, Android 13+), "Scan a code instead" (the screen "Scan the code on your Mac"; camera permission asked at that moment, with one sentence; scanning with ZXing core and Camera2), "Type the 12 words" (keyboard without learning: `IME_FLAG_NO_PERSONALIZED_LEARNING`, no autofill except the password manager), "Use my password manager" (Credential Manager `GetPasswordOption`, Android 14+; hidden on older versions, which need Google services for it). Then "Save to your password manager" as the one primary action (Credential Manager `CreatePasswordRequest`, id `Clipway`, password = the 12 words, Android 14+; on older versions the rescue kit is the backup), notifications permission (Android 13+), battery exemption, add the tile. Home: connection state, last items (history), Send clipboard button. Settings (10 at most): device name, relay, Copy automatically (on), Images too (on), Start when the phone starts (on), notifications, the tile, battery state, Show the key (biometric or device credential via `BiometricPrompt`, `FLAG_SECURE`, hidden again after 60 s), rescue kit (print), About, What leaves your device, Erase everything.
 - **Permissions**: exactly the list in [`permissions.txt`](permissions.txt). No Google Play Services, no Firebase, no analytics. Dependencies: AndroidX (Compose, Activity, Credentials), OkHttp, ZXing core.
 
 ## 7. Mac app
 
 - **Menu bar app** (`LSUIElement`, no Dock icon), SwiftUI `MenuBarExtra`, macOS 14+. Menu: state ("Connected to <phone name>", "Phone offline, items wait up to 24 hours", "Not paired", "Relay unreachable"), the last 10 history items (click copies back, or reveals a file), Send automatically (on), Images too (on), Send a file..., History..., Pair a phone... (opens on Pair nearby, section 13, with Show a code instead) and Join with 12 words... (not paired, or erased elsewhere) or Show the key... (which also offers Pair nearby), Settings..., About, What leaves your device, Quit. Dropping files on the menu bar icon sends them. Launch at login through `SMAppService`, asked once after pairing.
-- **Clipboard watch**: a timer every 300 ms compares `NSPasteboard.general.changeCount`. On a change that is not its own write (5.5), if Send automatically is on: skip concealed, transient and auto-generated content (5.4); file URLs (a Finder copy) are not sent automatically (use Send a file); a plain string is sent as text (at most 64 KB, else a note in the menu: "Too long to send: Clipway sends texts up to 64 KB"); otherwise, if Images too is on, PNG or TIFF data is offered as a PNG image (at most 25 MiB, section 14) when the phone is connected, and not at all when it is offline (an offer is only valid 2 minutes). At most one item per change; an item with the same `fp` as the last one sent less than 10 s ago is skipped.
+- **Clipboard watch**: a timer every 300 ms compares `NSPasteboard.general.changeCount`. On a change that is not its own write (5.5), if Send automatically is on: skip concealed, transient and auto-generated content (5.4); file URLs (a Finder copy) are not sent automatically (use Send a file); a plain string is sent as text (at most 64 KB, else a note in the menu: "Too long to send: Clipway sends texts up to 64 KB"); otherwise, if Images too is on, PNG or TIFF data is sent as a PNG image (at most 25 MiB) as 15.4 decides: directly when the phone is connected, through the relay in chunks when it is offline (4 MiB at most; with a relay older than 0.4.0, not at all while the phone is offline). At most one item per change; an item with the same `fp` as the last one sent less than 10 s ago is skipped.
 - **Receiving**: text is written as `.string`; an image (fetched directly, section 14) as its own type plus a TIFF representation for older apps; files go to `~/Downloads/Clipway/` (3.5). Notification (`UNUserNotificationCenter`, asked after pairing): "Copied from <phone name>", "Received <name> from <phone name>" (click reveals the file in Finder), "Couldn't receive <name> from <phone name>" with the reason.
 - **Key and history keys** in the login Keychain (section 1); the history in `~/Library/Application Support/Clipway/history.bin`, AES-256-GCM with a 32-byte key stored in the Keychain (account `history-key`). Show the key: `LAContext` `.deviceOwnerAuthentication` (Touch ID or the Mac password), window excluded from screen capture (`sharingType = .none`), hidden again after 60 s.
 - **Sandbox**: App Sandbox with network client, network server (the Mac listens on the local network while it offers an image or a file, 2 minutes at most, section 14), Downloads read-write, user-selected files read-write (Send a file, and the history export saved where the user chooses), printing (the rescue kit) and Bluetooth (nearby pairing, 13.8). `NSLocalNetworkUsageDescription`: "Clipway sends images and files straight to your phone over your local network, without any server." Ad hoc signature, hardened runtime, no debugger entitlement in release builds.
@@ -325,18 +328,18 @@ Files already saved to Downloads are not deleted (they belong to the user now); 
 
 The full version is [`THREAT_MODEL.md`](../THREAT_MODEL.md).
 
-1. Protected: the content of everything you send (text, images, files), file names, device names and device ids, against the relay, its host and anyone on the network: AES-256-GCM with a key only your devices hold. Images and files never reach the relay at all: they cross the local network, encrypted with a key of their own transfer (section 14).
+1. Protected: the content of everything you send (text, images, files), file names, device names and device ids, against the relay, its host and anyone on the network: AES-256-GCM with a key only your devices hold. Images and files cross the local network when they can, encrypted with a key of their own transfer (section 14), or pass through the relay as encrypted chunks (section 15).
 2. Protected: integrity and order of parts (GCM tags, AAD binds chain, item, index and count); a relay cannot forge, merge or reorder items.
 3. Protected: replays older than 24 h and duplicates (timestamps and item ids, 3.4).
 4. Protected: secrets marked by password managers or Android are never sent.
-5. The relay sees: a random chain id, the time and size of every item (padded to 512 bytes; an offer for a 25 MiB file looks like a short text), how many devices are connected, and IP addresses while connected (kept in memory for rate limits, never logged by the relay; a reverse proxy in front of it may log them, see PRIVACY.md for clip.sidali.dev).
+5. The relay sees: a random chain id, the time and size of every item (padded to 512 bytes; an offer for a 25 MiB file looks like a short text; a chunked item shows its number of parts, so its size to within 64 KiB), how many devices are connected, and IP addresses while connected (kept in memory for rate limits, never logged by the relay; a reverse proxy in front of it may log them, see PRIVACY.md for clip.sidali.dev).
 6. The relay keeps encrypted items 24 h at most, in memory. A seized relay gives ciphertext only.
 7. The relay can drop, delay or replay items within 24 h (replays are recognized and dropped), or refuse service. Availability is not protected.
 8. Anyone who has the 12 words or the QR code can read everything sent on the chain and send items to your devices. Change the key if they leak.
 9. Not protected: an unlocked device in someone else's hands, malware on a device, the other apps that read the clipboard once Clipway writes to it, and the keyboard.
 10. Not protected: someone who records ciphertext today and gets the 12 words later can decrypt it (no forward secrecy in v1; the key is static, see [N2] in the standard).
 11. Post-quantum: symmetric only (AES-256, HMAC-SHA256, HKDF), 128-bit secret; no public-key cryptography to break, except during a nearby pairing (X25519): a recording of that pairing could reveal S to a future quantum computer (13.9). Pair with the QR code to avoid it.
-12. Timing: the relay can tell when you copy something on the Mac. It cannot tell a text from an image or a file, nor how big a file is.
+12. Timing: the relay can tell when you copy something on the Mac. It cannot tell a text from an offer; an item in several parts is an image or a file sent through it, and its number of parts gives its size to within 64 KiB (15.6).
 19. Direct transfer: someone on the same local network sees that two devices exchange encrypted data, how much and when, and the local addresses; never the content, the name or the type (14.6).
 13. Erasing destroys the keys; flash storage may keep old encrypted blocks, unreadable without them.
 14. A malicious QR code can point the phone at another relay; that relay sees the same as ours (ciphertext and metadata), and the phone shows the host before joining.
@@ -349,6 +352,7 @@ The full version is [`THREAT_MODEL.md`](../THREAT_MODEL.md).
 
 - Protocol version 1: `v: 1` in every head, subprotocol `clipway.v1`, `protocol: 1` in the well-known file. A future version uses `clipway.v2`; a relay may accept both during a transition, announced one release ahead.
 - Clipway 0.3.0 changed what the relay carries without changing the version: before any release, both apps and the relay moved together. Items of type `image` and `file`, and chunks, are refused by 0.3.0 relays and apps; `minClient` 0.3.0 tells older apps to update.
+- Clipway 0.4.0 adds chunked items (section 15), still protocol version 1: a new head type and items of up to 65 parts, announced by `limits.parts` in `welcome` and in the well-known file. Compatibility both ways: a 0.4.0 app with a relay older than 0.4.0 (`parts` 1) never sends a chunked item and keeps images and files direct; a 0.4.0 relay accepts every 0.3.0 item as before. A 0.3.0 app cannot read a chunked item (the Mac drops and acknowledges it, the phone ignores it and the relay keeps it until its 24 hours are over), so a 0.4.0 relay announces `minClient` 0.4.0 and older apps show the update banner. Deploy the relay first, then the apps.
 - Direct transfer version 1 is the preamble `CWD1` (section 14); an incompatible change uses another one.
 - Nearby pairing version 1 is its service UUID `a4985110-4541-4fcc-bcac-ee9b5ce269d0` and `v: 1` in its packet; an incompatible change uses a new service UUID (13.2).
 - App versions follow SemVer and start at 0.1.0 (Android `versionName`, Mac `MARKETING_VERSION`, relay `package.json`), with an entry in `CHANGELOG.md` each.
@@ -537,7 +541,7 @@ The Android emulator has no Bluetooth LE and CI has no radio, so the exchange is
 
 ## 14. Direct transfer of images and files
 
-Images and files never go through the relay. The device that has the content (the **sender**) listens on its local network and sends an **offer** through the relay (3.1): a short encrypted item with the size, the fingerprint, the port and its local addresses. The other device (the **receiver**) connects to one of those addresses, proves it holds the chain's key, and receives the content, encrypted with a key that exists only for this transfer. Nothing about the content, not even its size, reaches the relay.
+On the same network, images and files go directly, and nothing of them but a short offer goes through the relay. The device that has the content (the **sender**) listens on its local network and sends an **offer** through the relay (3.1): a short encrypted item with the size, the fingerprint, the port and its local addresses. The other device (the **receiver**) connects to one of those addresses, proves it holds the chain's key, and receives the content, encrypted with a key that exists only for this transfer. Nothing about the content, not even its size, reaches the relay. When the direct transfer is not possible, an image or a file of 4 MiB at most goes through the relay instead (section 15).
 
 Reference: `relay/direct.js` (derivations, records, and a small sender and receiver on `node:net`), the `direct` block of [`docs/VECTORS.json`](VECTORS.json), and `relay/test/direct.test.js`. `relay/tools/client.mjs send --file` and `listen` speak it, so either app can be tested against the command line.
 
@@ -582,7 +586,7 @@ The sender's listening socket exists only while at least one of its offers is op
 
 - An offer lists the sender's IPv4 addresses on a local network, at most 8: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` and link-local `169.254.0.0/16`. No public address, no IPv6 in version 1, no host name.
 - A receiver connects **only** to such addresses (debug builds also to `127.0.0.1`, and the phone's to `10.0.2.2`, for the emulator). A direct transfer therefore never crosses the Internet, and Clipway never connects to an address on the Internet that an offer names.
-- A sender with no such address (the phone on mobile data only, the Mac offline) does not offer: "Not sent: connect to the same Wi-Fi as your Mac" (or "as your phone").
+- A sender with no such address (the phone on mobile data only, the Mac offline) does not offer: it sends the content through the relay in chunks (section 15) when it is 4 MiB at most, and otherwise says "Not sent: over 4 MB, connect to the same Wi-Fi as your Mac" (or "as your phone").
 
 ### 14.5 What each side shows
 
@@ -590,11 +594,11 @@ The sender's listening socket exists only while at least one of its offers is op
 |---|---|---|
 | Offer sent | history row "Sending" | |
 | Fetched and checked | "Delivered" | the item, as in 3.5 |
-| No address answered | "Not sent: your devices aren't on the same network" (on the reply `unreachable`) | "Couldn't receive <name> from <device>: your phone and your Mac need to be on the same network" |
-| Transfer broke, or wrong fingerprint | "Not sent" (reply `failed`, or get 1 `failed`) | "Couldn't receive <name> from <device>. Try again." |
+| No address answered | 4 MiB at most: sent through the relay instead (15.4), the row goes back to "Sending". Larger: "Not sent: your devices aren't on the same network" (on the reply `unreachable`) | Larger: "Couldn't receive <name> from <device>: your phone and your Mac need to be on the same network". 4 MiB at most: nothing, the content comes through the relay |
+| Transfer broke, or wrong fingerprint | 4 MiB at most: through the relay instead. Larger: "Not sent" (reply `failed`, or get 1 `failed`) | Larger: "Couldn't receive <name> from <device>. Try again." |
 | 2 minutes without an answer | "Not sent: your Mac didn't answer. Both need to be on, with Clipway on, on the same network." | |
 
-Phone: a notification on the quiet "Received" channel for the receiver's failures, and the history row for the sender. Mac: a note in the menu, a notification, and the history row. Both apps say in What leaves your device and in About that images and files go directly over the local network and never through the relay, and that both devices must be on the same network.
+Phone: a notification on the quiet "Received" channel for the receiver's failures, and the history row for the sender. Mac: a note in the menu, a notification, and the history row. Both apps say in What leaves your device that images and files go directly over the local network when they can, and otherwise through the relay in encrypted pieces, 4 MB at most.
 
 ### 14.6 Threat model
 
@@ -614,3 +618,52 @@ Phone: a notification on the quiet "Received" channel for the receiver's failure
   - Mac to phone: the emulator reaches the Mac's own addresses through its network, and the phone's debug build also tries `10.0.2.2` at the offer's port.
   - Phone to Mac: the phone's debug build listens on 7721 when free and lists `127.0.0.1` first; `adb -s emulator-5554 forward tcp:7721 tcp:7721` makes the Mac's debug build reach it.
 - Release builds keep the rules of 14.4 only.
+
+## 15. Images and files through the relay (chunked items)
+
+When an image or a file cannot go directly (section 14), it goes through the relay as one **chunked item**: an encrypted head, then the content cut in encrypted **chunks**. Since Clipway 0.4.0, on relays that announce `limits.parts` 65.
+
+Reference: `buildItem` and `readItem` in `relay/crypto.js`, the `chunked_item`, `chunked_file_item` and `chunked_empty_item` blocks of [`docs/VECTORS.json`](VECTORS.json), `relay/test/crypto.test.js` and `relay/test/flow.test.js`. `relay/tools/client.mjs send --file PATH --chunked` sends one, and `listen` receives them.
+
+### 15.1 Parts
+
+| Part | Plaintext | AAD | Key |
+|---|---|---|---|
+| 0: the head | the padded JSON head of type `chunked` (3.1): `media`, `mime`, `name`, `size`, `fp`, `chunks` | the chain id, as every head | K_enc |
+| 1 to n: chunk i = part - 1 | content bytes `[i x 65 536, (i + 1) x 65 536)`, the last chunk shorter, none for an empty file | `"clipway-chunk|<chain id>|<item>|<i>|<n>"` (UTF-8) | K_enc |
+
+- `n = chunks = ceil(size / 65 536)`; an item has `1 + n` parts, at most 65.
+- Every part is an ordinary envelope (section 2) with its own random nonce. A chunk envelope's `enc` is 87 404 characters (65 536 + 16 bytes in base64), under the 117 440 of a text.
+- Sizes: `size` at most **4 194 304 bytes (4 MiB)**, so 64 chunks. All 65 envelopes take about 5.6 MB of base64, under the 6 MiB queue of a chain.
+
+### 15.2 Integrity
+
+The AAD binds each chunk to the chain, the item, its position and the number of chunks: a chunk moved to another item or position, a chunk missing, added or swapped fails authentication or the part count. Once all chunks are open, the receiver checks that every chunk but the last is full, that the total is `size`, and `fp` (HMAC with K_mac) over the whole content, before writing anything.
+
+### 15.3 Receiving
+
+The relay delivers all parts of an item together, in order, only once the upload is complete. A receiver collects the parts of one `seq` (part 0 first; more than 65 parts, or parts out of order, are dropped), then opens the head, applies 3.4 (freshness 24 h + 10 min, duplicates, own items: an offline phone gets the photo up to 24 hours later), opens and checks the chunks (15.2), writes the content (3.5), and only then acknowledges the item. A chunked item that fails a check is dropped and acknowledged; one it could not write (storage full) is not acknowledged, and comes back at the next connection.
+
+### 15.4 Which way an image or a file goes
+
+The sender decides, in this order:
+
+1. **Directly** (section 14) when the other device is connected to the relay (`presence` 2 or more) and this device has an address on a local network. Also directly, as in 0.3.0, when the content cannot go through the relay (over 4 MiB, or a relay with `parts` 1) and there is a local address.
+2. If that direct transfer ends `unreachable`, `expired` or `failed` (not `declined`), a content of 4 MiB at most is sent again **through the relay**, as a chunked item with a **new item id**; the history row of the offer goes back to "Sending" and follows the chunked item (Sent, Waiting, Delivered).
+3. **Through the relay** at once when the other device is offline, or this device has no local address (the phone on mobile data), and the content is 4 MiB at most on a relay that takes 65 parts.
+4. Otherwise not sent: "Not sent: over 4 MB, connect to the same Wi-Fi as your Mac" (or "as your phone"), or, with a relay older than 0.4.0, "Not sent: connect to the same Wi-Fi as your Mac".
+
+Apps learn `limits.parts` from `welcome` (Android also keeps it between connections, reset to 1 when the relay setting changes).
+
+### 15.5 Limits on the relay
+
+Nothing new for the relay to hold: the queue of a chain (50 items, 6 MiB, 24 h, oldest evicted first), the rates (60 items per minute, 60 MiB per hour per chain), the global memory limit and the per-IP limits stay as they are (4.7). Uploads in progress may hold 6 MiB per connection (a whole 4 MiB item), and an upload that is not complete within 2 minutes, or whose connection closes, is dropped: an incomplete item never reaches another device and never stays in memory.
+
+### 15.6 Threat model
+
+1. **The relay** sees ciphertext only: it cannot read the head nor the chunks, nor tell an image from a file. It sees that an item has several parts, so that it is an image or a file sent through it, and its number of parts, so its size to within 64 KiB. Everything else is as for texts (section 10): kept 24 h at most, in memory, never on disk.
+2. **Integrity**: 15.2. A relay can drop or delay a chunked item, or refuse it, not change, truncate or reorder it.
+3. **Abuse**: the relay cannot see what travels, as for texts. It limits what one chain can hold and send (6 MiB, 24 h, 60 MiB per hour), so a chain is a poor way to distribute files to many people: there is no link, no account, and items go only to the devices that hold the chain's key.
+4. **Same keys as the chain**: someone who has the 12 words can read a chunked item within its 24 hours, exactly as a text (section 10, point 8).
+5. Post-quantum: symmetric only, as the other items.
+
