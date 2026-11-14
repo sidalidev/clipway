@@ -109,6 +109,25 @@ class Prefs(context: Context) {
         get() = raw.getInt("unreadable", 0)
         set(v) = raw.edit().putInt("unreadable", v).apply()
 
+    /** Automatic updates (docs/UPDATES.md), on by default. */
+    var automaticUpdates: Boolean
+        get() = raw.getBoolean("automatic_updates", true)
+        set(v) = raw.edit().putBoolean("automatic_updates", v).apply()
+
+    /** The last update.json that announced a newer version, its last check, last try and notified version. */
+    var updateManifest: String?
+        get() = raw.getString("update_manifest", null)
+        set(v) = raw.edit().putString("update_manifest", v).apply()
+    var updateCheckedAt: Long
+        get() = raw.getLong("update_checked", 0L)
+        set(v) = raw.edit().putLong("update_checked", v).apply()
+    var updateTriedAt: Long
+        get() = raw.getLong("update_tried", 0L)
+        set(v) = raw.edit().putLong("update_tried", v).apply()
+    var updateNotified: Long
+        get() = raw.getLong("update_notified", 0L)
+        set(v) = raw.edit().putLong("update_notified", v).apply()
+
     /** Relay status from /.well-known/clipway-relay.json, checked once a day. */
     var relayNotice: String?
         get() = raw.getString("relay_notice", null)

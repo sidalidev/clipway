@@ -16,6 +16,8 @@ enum ClipwayMain {
             exit(NearbyVectorsCheck.run(path: path))
         }
         #endif
+        // Opened by an update: the previous version quits first (Updater.relaunch).
+        Updater.waitForPreviousInstance()
         let app = NSApplication.shared
         let delegate = AppDelegate()
         Self.delegate = delegate
@@ -48,6 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.router = router
         statusItem = status
         model.start()
+        Updater.shared.start()
         #if DEBUG
         if CommandLine.arguments.contains("--debug-menu") {
             Task { @MainActor in

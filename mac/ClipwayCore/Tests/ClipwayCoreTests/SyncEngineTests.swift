@@ -224,4 +224,73 @@ final class SyncEngineTests: XCTestCase {
         XCTAssertEqual(received.last?.head.type, .hello)
         XCTAssertEqual(received.last?.head.device.name, "Pixel")
     }
+
+    // MARK: Frames over the relay's limit (the reconnection loop seen in production on Android)
+
+    private func ready(_ e: SyncEngine) {
+        e.connected()
+        e.receive("{\"kind\":\"welcome\",\"v\":1,\"epoch\":\"e\",\"devices\":2,\"limits\":{}}")
+        e.receive("{\"kind\":\"synced\",\"last\":0}")
+    }
+
+    func testAFrameOverTheLimitIsNeverSentAndTheQueueMovesOn() throws {
+        let e = makeEngine()
+        ready(e)
+        let built = try text("ok", from: mac)
+        // Queued by older code: forced in, past the check in enqueue.
+        let huge = C.Envelope(nonce: String(repeating: "0", count: 24), enc: String(repeating: "A", count: SyncEngine.frameMax))
+        e.outbox.append(.init(item: "big", envelopes: [huge], isHello: false, history: "big", ref: nil))
+        e.enqueue(built)
+        for round in 1...4 {
+            XCTAssertTrue(sent.allSatisfy { (try? JSONSerialization.data(withJSONObject: $0).count ?? 0) ?? 0 <= SyncEngine.frameMax }, "round \(round)")
+            e.disconnected(code: 1000)
+            ready(e)
+        }
+        XCTAssertEqual(statuses.filter { $0.0 == "big" }.map(\.1), [.failed])
+        XCTAssertFalse(e.outbox.contains { $0.item == "big" })
+    }
+
+    func testEnqueueRefusesWhatCannotFit() {
+        let e = makeEngine()
+        let huge = C.Envelope(nonce: String(repeating: "0", count: 24), enc: String(repeating: "A", count: SyncEngine.frameMax - SyncEngine.frameSlack + 1))
+        XCTAssertFalse(SyncEngine.fits([huge]))
+        XCTAssertFalse(SyncEngine.fits([]))
+    }
+
+    func testTheLargestTextAndChunksFit() throws {
+        let big = try ItemCodec.build(keys: keys, type: .text, device: mac, ts: clock, content: Data(repeating: 0x7a, count: C.textMax))
+        XCTAssertTrue(SyncEngine.fits(big.envelopes))
+    }
+
+    func testClosedWith1009FailsTheItemInFlight() throws {
+        let e = makeEngine()
+        ready(e)
+        let a = try text("a", from: mac)
+        let b = try text("b", from: mac)
+        e.enqueue(a)
+        e.enqueue(b)
+        XCTAssertEqual(kinds().filter { $0 == "item" }.count, 1)
+        e.disconnected(code: SyncEngine.closeTooBig)
+        XCTAssertEqual(statuses.map(\.1), [.failed])
+        XCTAssertEqual(statuses.first?.0, a.head.item)
+        sent = []
+        ready(e)
+        XCTAssertEqual(e.outbox.map(\.item), [b.head.item])
+        XCTAssertEqual(kinds(), ["sync", "item"])
+    }
+
+    func testAnItemCutThreeTimesInARowFails() throws {
+        let e = makeEngine()
+        ready(e)
+        let a = try text("a", from: mac)
+        e.enqueue(a)
+        for _ in 1..<SyncEngine.cutsMax {
+            e.disconnected(code: nil)
+            ready(e)
+        }
+        XCTAssertTrue(statuses.isEmpty)
+        e.disconnected(code: nil)
+        XCTAssertEqual(statuses.map(\.1), [.failed])
+        XCTAssertTrue(e.outbox.isEmpty)
+    }
 }

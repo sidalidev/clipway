@@ -9,12 +9,15 @@
 /* Begin PBXBuildFile section */
 		036C0C8B083A352016998EF9 /* ClipwayApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC88AB87DCF81FF068D857E6 /* ClipwayApp.swift */; };
 		0716752C262951D97BDDEC86 /* StatusItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15A8CE1A1E856FAB1A6C20F0 /* StatusItem.swift */; };
+		0D55D45B9A3439D1923DA2EB /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83E1BF9B307BD9330E3AE321 /* main.swift */; };
 		0F4CE1CD1F227D260B175066 /* NearbyViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AAD3C9EAD70055BA78050E5 /* NearbyViews.swift */; };
 		2211040CE5E52A33B5097B2D /* System.swift in Sources */ = {isa = PBXBuildFile; fileRef = C92696E3AEC0095E7613920C /* System.swift */; };
 		320AEDCBC4F4CCBEB549469A /* PermissionsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AF55CD529C71DAD64CE5D41 /* PermissionsCard.swift */; };
 		3452D9186BFA5E260BBBADB6 /* BricolageGrotesque-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = E56455874CCEA6911F4AECA6 /* BricolageGrotesque-OFL.txt */; };
+		4575D6EBCC0A96B3CDBDF41D /* ClipwayUpdater.xpc in CopyFiles */ = {isa = PBXBuildFile; fileRef = CBB8E4BC25321A4FECB9C3A5 /* ClipwayUpdater.xpc */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		46D941C7AB77CB953A223B36 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25DA6415091A3940BAB2F214 /* SettingsView.swift */; };
 		471B11ED6F38770EA96D0A5A /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F665B13ECD2356379DBED321 /* HistoryView.swift */; };
+		4D5A088B1F8749D1CC89D73D /* ClipwayCore in Frameworks */ = {isa = PBXBuildFile; productRef = 565D8FF14102FBA0BC363E8B /* ClipwayCore */; };
 		575A0E9BCBBA1987FA96E32A /* ClipwayCore in Frameworks */ = {isa = PBXBuildFile; productRef = D925E780D73195C44FEB66AF /* ClipwayCore */; };
 		5A6ED4BFCD06C8B35BE14B54 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 844380DEC30F71C213296396 /* Assets.xcassets */; };
 		5D20542AB9BD4EEDC87FA9B3 /* Figtree.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 05BCB3E8D919D086EE2B8A40 /* Figtree.ttf */; };
@@ -26,6 +29,7 @@
 		86A66AC9734292D7A79288A0 /* Pasteboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 218C9F3E097869B91A20DB4A /* Pasteboard.swift */; };
 		8FC9E81A072B62DDFE058094 /* PairingViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19B867F80BBC205F77463EFB /* PairingViews.swift */; };
 		94B30077B476DA55C947E902 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D195231B7E4A0C026863D59 /* AppModel.swift */; };
+		A04E64BEEE19E019DA9113A8 /* Updater.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8AC1CD834917EF2C0C412DC /* Updater.swift */; };
 		BFB346022F40EAEF791F4937 /* Figtree-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = 28593B5EFEB2BF0FDF9461B1 /* Figtree-OFL.txt */; };
 		C059910BEEEF7CF6F3500614 /* BricolageGrotesque.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 14E87B293889AF840EEACF14 /* BricolageGrotesque.ttf */; };
 		C5F21FDEB411118E45DAC3B2 /* RescueKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45EA3A62BFA2E484C05B167D /* RescueKit.swift */; };
@@ -34,6 +38,29 @@
 		F209FFB8FF36038BEB05853F /* RelayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAADB5C33B550A97D14325DF /* RelayClient.swift */; };
 		FE1DA2AEBCAFB8801CDD1E60 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F978A1A0DBFBC3C6923F5A4 /* Components.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B214E53C9B85992B4C27043B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D385BFF7D67FC38661898736 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C9B69932B5A7B42F387D6F51;
+			remoteInfo = ClipwayUpdater;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B17C1D30C28D2677214DA137 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/XPCServices";
+			dstSubfolderSpec = 16;
+			files = (
+				4575D6EBCC0A96B3CDBDF41D /* ClipwayUpdater.xpc in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		026C6C40722698372E6123F3 /* Clipway.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Clipway.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -52,11 +79,15 @@
 		762EBA6E78F911A340C75957 /* Clipway.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Clipway.entitlements; sourceTree = "<group>"; };
 		79186A4CEBCBF3B6B8F7D036 /* Snapshots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Snapshots.swift; sourceTree = "<group>"; };
 		7AF55CD529C71DAD64CE5D41 /* PermissionsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionsCard.swift; sourceTree = "<group>"; };
+		83E1BF9B307BD9330E3AE321 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		844380DEC30F71C213296396 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		87A3A34F1E804D0E4C0AF6B6 /* AboutViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutViews.swift; sourceTree = "<group>"; };
 		8AAD3C9EAD70055BA78050E5 /* NearbyViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyViews.swift; sourceTree = "<group>"; };
 		98CEEBD8F28AC356DAC408EA /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
+		A928A7DABC440C860A52E90B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		C8AC1CD834917EF2C0C412DC /* Updater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updater.swift; sourceTree = "<group>"; };
 		C92696E3AEC0095E7613920C /* System.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = System.swift; sourceTree = "<group>"; };
+		CBB8E4BC25321A4FECB9C3A5 /* ClipwayUpdater.xpc */ = {isa = PBXFileReference; explicitFileType = "wrapper.xpc-service"; includeInIndex = 0; path = ClipwayUpdater.xpc; sourceTree = BUILT_PRODUCTS_DIR; };
 		E56455874CCEA6911F4AECA6 /* BricolageGrotesque-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "BricolageGrotesque-OFL.txt"; sourceTree = "<group>"; };
 		EA0036322BC61E934F077349 /* PRIVACY.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PRIVACY.md; sourceTree = "<group>"; };
 		EA56BAF37DB0D7BB927FFA3A /* NearbyPairing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NearbyPairing.swift; sourceTree = "<group>"; };
@@ -76,6 +107,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7EC184B7E5D5CD41AA7F812B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D5A088B1F8749D1CC89D73D /* ClipwayCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -84,6 +123,7 @@
 			children = (
 				F62069171F6DE009982D9E99 /* Clipway */,
 				F7099A1E6507C9F43C313DB8 /* Clipway */,
+				248ACEDCFDED9BB478B0D8F0 /* ClipwayUpdater */,
 				0EEDE3ED96214F2C0DF663FA /* Packages */,
 				40DC1F4E775D70C3A2889BAE /* Products */,
 			);
@@ -95,6 +135,15 @@
 				1D721913940AA70E513EAC49 /* ClipwayCore */,
 			);
 			name = Packages;
+			sourceTree = "<group>";
+		};
+		248ACEDCFDED9BB478B0D8F0 /* ClipwayUpdater */ = {
+			isa = PBXGroup;
+			children = (
+				A928A7DABC440C860A52E90B /* Info.plist */,
+				83E1BF9B307BD9330E3AE321 /* main.swift */,
+			);
+			path = ClipwayUpdater;
 			sourceTree = "<group>";
 		};
 		30FC35E858CAEF0E064571C4 /* Fonts */ = {
@@ -112,6 +161,7 @@
 			isa = PBXGroup;
 			children = (
 				026C6C40722698372E6123F3 /* Clipway.app */,
+				CBB8E4BC25321A4FECB9C3A5 /* ClipwayUpdater.xpc */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -146,6 +196,7 @@
 				15A8CE1A1E856FAB1A6C20F0 /* StatusItem.swift */,
 				C92696E3AEC0095E7613920C /* System.swift */,
 				45745F64A22B9365413D8BF0 /* Tokens.swift */,
+				C8AC1CD834917EF2C0C412DC /* Updater.swift */,
 				FCBE7F30CE7CBED4EFEABDDA /* WindowRouter.swift */,
 				30FC35E858CAEF0E064571C4 /* Fonts */,
 				CB100AF94017A0B0C5F82967 /* Views */,
@@ -172,11 +223,13 @@
 			buildPhases = (
 				B34F294B36C7FAFD01188A10 /* Sources */,
 				7BBE9B065F37F9503DADBF3C /* Resources */,
+				B17C1D30C28D2677214DA137 /* CopyFiles */,
 				4F845AAC3ED62D2C9E741555 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				44807C763F270E43957FB291 /* PBXTargetDependency */,
 			);
 			name = Clipway;
 			packageProductDependencies = (
@@ -185,6 +238,25 @@
 			productName = Clipway;
 			productReference = 026C6C40722698372E6123F3 /* Clipway.app */;
 			productType = "com.apple.product-type.application";
+		};
+		C9B69932B5A7B42F387D6F51 /* ClipwayUpdater */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EBF2A9F20E36FB1571365221 /* Build configuration list for PBXNativeTarget "ClipwayUpdater" */;
+			buildPhases = (
+				B3463AEAD79491637B711673 /* Sources */,
+				7EC184B7E5D5CD41AA7F812B /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ClipwayUpdater;
+			packageProductDependencies = (
+				565D8FF14102FBA0BC363E8B /* ClipwayCore */,
+			);
+			productName = ClipwayUpdater;
+			productReference = CBB8E4BC25321A4FECB9C3A5 /* ClipwayUpdater.xpc */;
+			productType = "com.apple.product-type.xpc-service";
 		};
 /* End PBXNativeTarget section */
 
@@ -196,6 +268,10 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					C2CB994A8F9DD77DF3B29C42 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+					};
+					C9B69932B5A7B42F387D6F51 = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Manual;
 					};
@@ -219,6 +295,7 @@
 			projectRoot = "";
 			targets = (
 				C2CB994A8F9DD77DF3B29C42 /* Clipway */,
+				C9B69932B5A7B42F387D6F51 /* ClipwayUpdater */,
 			);
 		};
 /* End PBXProject section */
@@ -241,6 +318,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		B3463AEAD79491637B711673 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0D55D45B9A3439D1923DA2EB /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		B34F294B36C7FAFD01188A10 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -262,13 +347,39 @@
 				0716752C262951D97BDDEC86 /* StatusItem.swift in Sources */,
 				2211040CE5E52A33B5097B2D /* System.swift in Sources */,
 				F16E40AAE3E9678F4454E506 /* Tokens.swift in Sources */,
+				A04E64BEEE19E019DA9113A8 /* Updater.swift in Sources */,
 				5E0B93AA59E155B7F335A87B /* WindowRouter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		44807C763F270E43957FB291 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C9B69932B5A7B42F387D6F51 /* ClipwayUpdater */;
+			targetProxy = B214E53C9B85992B4C27043B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		007D622AFD46CBD0C1BE7B8F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ClipwayUpdater/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.sidali.clipway.debug.updater;
+				PRODUCT_NAME = ClipwayUpdater;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
 		6469DA1C2DB75D5785E69C9B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -305,7 +416,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
@@ -328,7 +439,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.4.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -396,7 +507,7 @@
 				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Manual;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
@@ -413,7 +524,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.4.0;
+				MARKETING_VERSION = 0.4.1;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -443,6 +554,23 @@
 			};
 			name = Release;
 		};
+		A85AA6761457DA01F1A3731D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ClipwayUpdater/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.sidali.clipway.updater;
+				PRODUCT_NAME = ClipwayUpdater;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -464,6 +592,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		EBF2A9F20E36FB1571365221 /* Build configuration list for PBXNativeTarget "ClipwayUpdater" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				007D622AFD46CBD0C1BE7B8F /* Debug */,
+				A85AA6761457DA01F1A3731D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -474,6 +611,10 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		565D8FF14102FBA0BC363E8B /* ClipwayCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ClipwayCore;
+		};
 		D925E780D73195C44FEB66AF /* ClipwayCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ClipwayCore;

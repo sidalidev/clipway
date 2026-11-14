@@ -2,6 +2,26 @@
 
 Notes for people. The technical details live in the commit history and [docs/PROTOCOL.md](docs/PROTOCOL.md).
 
+## 0.4.1
+
+**New**
+
+- Automatic updates, on both apps. Clipway checks clip.sidali.dev when it opens and once a day, without any identifier, and offers each new version: a banner on the phone's Home screen, a menu item on the Mac. Nothing installs before you choose Install. Turn it off in Settings, Automatic updates.
+- On the phone, the new version is checked before Android installs it: same size and checksum as published, signed with the same key as the installed app, the one in SECURITY.md. Android always asks you to confirm. Obtainium keeps working as before.
+- On the Mac, Clipway downloads the new version, checks its checksum and its signature with Clipway's update key, replaces itself in one step and opens again. A version that is not signed with that key is refused and the installed one keeps working.
+
+**Improved**
+
+- The Mac keeps the pairing across updates. The key and the history key are now sealed by the Mac's Secure Enclave instead of the Keychain, which tied them to each build and asked for your password, or lost the pairing, after an update. A copy of these files on another computer opens nothing.
+- An item that the relay cannot take no longer blocks everything. Both apps check the size of every piece before sending it, and an item the relay keeps cutting the connection on now fails once, with a notification on the phone, instead of being sent again forever while nothing else gets through.
+- What leaves your device and the privacy policy describe the update check.
+
+**Known problems**
+
+- Updating from 0.4.0 is by hand, once: download 0.4.1 from the releases page (Obtainium on the phone). On the Mac, macOS then asks once to let 0.4.1 read the key kept by 0.4.0: choose Always Allow, for each of the two items.
+- The relay's update files only exist once the reference relay is redeployed with its releases folder.
+- The update was tested end to end on a Mac with two debug builds through a local relay, and on Android with unit tests; not yet on the Pixel.
+
 ## 0.4.0
 
 **New**

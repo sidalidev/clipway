@@ -257,6 +257,7 @@ fun LeavesScreen(onBack: () -> Unit) {
         Leave(stringResource(R.string.leaves_relay_title), stringResource(R.string.leaves_relay_body), null)
         Leave(stringResource(R.string.leaves_time_title), stringResource(R.string.leaves_time_body), null)
         Leave(stringResource(R.string.leaves_status_title), stringResource(R.string.leaves_status_body, host), null)
+        Leave(stringResource(R.string.leaves_updates_title), stringResource(R.string.leaves_updates_body), null)
         Leave(stringResource(R.string.leaves_bluetooth_title), stringResource(R.string.leaves_bluetooth_body), null)
         Leave(stringResource(R.string.leaves_never_title), stringResource(R.string.leaves_never_body), null)
         Leave(stringResource(R.string.leaves_key_title), stringResource(R.string.leaves_key_body), null)

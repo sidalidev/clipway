@@ -44,6 +44,13 @@ public final class SyncEngine {
 
     public static let outboxMax = 50
     public static let retryDelayMs: Int64 = 30_000
+    /// The relay's largest frame (LIMITS.frame), and the room it keeps in it to forward a part.
+    public static let frameMax = 131_072
+    public static let frameSlack = 256
+    /// WebSocket close code "message too big", sent by the relay's WebSocket library.
+    public static let closeTooBig = 1009
+    /// Connections cut while the same item was in flight, before it fails instead of being sent again.
+    public static let cutsMax = 3
 
     public let keys: ChainKeys
     public let deviceId: String
@@ -83,6 +90,8 @@ public final class SyncEngine {
     /// The lowest seq that could not be handled on this connection: after stays below it.
     private var holdBelow: Int?
     private var pumpScheduled = false
+    /// The item in flight when connections were cut, and how many times in a row.
+    private var cut: (item: String, count: Int)?
 
     public init(keys: ChainKeys, deviceId: String, cursor: Cursor = Cursor(), guardian: ReceiveGuard = ReceiveGuard()) {
         self.keys = keys
@@ -104,7 +113,21 @@ public final class SyncEngine {
         onPhase?()
     }
 
-    public func disconnected() {
+    /// The connection is gone, with its WebSocket close code when known. An item in flight goes
+    /// back to the queue, unless the relay closed with 1009 (a frame too big for it) or the same
+    /// item was cut `cutsMax` times in a row: then it fails, instead of being sent again forever.
+    public func disconnected(code: Int? = nil) {
+        if let i = outbox.firstIndex(where: { $0.ref != nil }) {
+            let item = outbox[i].item
+            let count = cut?.item == item ? (cut?.count ?? 0) + 1 : 1
+            cut = (item, count)
+            if code == Self.closeTooBig || count >= Self.cutsMax {
+                let failed = outbox.remove(at: i)
+                cut = nil
+                if !failed.isHello { onStatus?(failed.history, .failed) }
+                onError?("too_big")
+            }
+        }
         phase = .offline
         devices = 0
         partial = nil
@@ -154,6 +177,7 @@ public final class SyncEngine {
         case let .stored(ref, seq):
             guard let i = outbox.firstIndex(where: { $0.ref == ref }) else { break }
             let sent = outbox.remove(at: i)
+            if cut?.item == sent.item { cut = nil }
             if !sent.isHello {
                 seqToItem[seq] = sent.history
                 onStatus?(sent.history, devices >= 2 ? .sent : .waiting)
@@ -189,6 +213,11 @@ public final class SyncEngine {
     /// Queues an item until stored arrives. Sent at once when synced. history: the row its status
     /// updates, when it is not the item's own (an image sent through the relay after its offer failed).
     public func enqueue(_ built: ItemCodec.Built, history: String? = nil) {
+        guard Self.fits(built.envelopes) else {
+            // Never queued: a frame over the relay's limit would make it close the connection.
+            if built.head.type != .hello { onStatus?(history ?? built.head.item, .failed) }
+            return
+        }
         outbox.append(Outgoing(
             item: built.head.item, envelopes: built.envelopes, isHello: built.head.type == .hello,
             history: history ?? built.head.item, ref: nil))
@@ -215,12 +244,26 @@ public final class SyncEngine {
             }
             return
         }
+        guard Self.fits(outbox[i].envelopes) else {
+            let failed = outbox.remove(at: i)
+            if !failed.isHello { onStatus?(failed.history, .failed) }
+            pump()
+            return
+        }
         let ref = nextRef
         nextRef = nextRef >= Int(Int32.max) ? 1 : nextRef + 1
         outbox[i].ref = ref
         let parts = outbox[i].envelopes.count
         for (part, blob) in outbox[i].envelopes.enumerated() {
             send?(RelayFrame.upload(ref: ref, part: part, parts: parts, blob: blob))
+        }
+    }
+
+    /// Every part fits in one relay frame, with the room the relay keeps to forward it.
+    public static func fits(_ envelopes: [ClipwayCrypto.Envelope]) -> Bool {
+        !envelopes.isEmpty && envelopes.count <= ClipwayCrypto.partsMax && envelopes.allSatisfy { blob in
+            blob.enc.utf8.count + frameSlack <= frameMax
+                && RelayFrame.upload(ref: Int(Int32.max), part: envelopes.count - 1, parts: envelopes.count, blob: blob).utf8.count <= frameMax
         }
     }
 

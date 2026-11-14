@@ -145,6 +145,7 @@ class ClipService : Service() {
                     lockscreenVisibility = Notification.VISIBILITY_SECRET
                 },
             )
+            Updater.channel(context)
         }
     }
 
@@ -235,6 +236,9 @@ class ClipService : Service() {
             // watchdog sends an application ping every 4.5 min.
             .build()
         getSystemService(ConnectivityManager::class.java).registerDefaultNetworkCallback(networkCallback, worker)
+        // Nothing that could never be sent stays queued (a frame over the relay's limit would make
+        // it close the connection again at every try).
+        Sender.outbox.purge().forEach { refused(it.history, it.parts.size) }
         worker.post { connect() }
         scheduleWatchdog(WATCHDOG_MS)
     }
@@ -372,7 +376,7 @@ class ClipService : Service() {
 
     private fun onClosed(code: Int) {
         Log.i(TAG, "Connection closed ($code)")
-        drop()
+        drop(code)
         if (code == 4001) {
             // The chain was erased from another device: stop and say so, also after a restart.
             prefs.chainErased = true
@@ -397,11 +401,11 @@ class ClipService : Service() {
     }
 
     /** Forgets the current socket without scheduling anything. */
-    private fun drop() {
+    private fun drop(code: Int = 1000) {
         generation++
         socket?.cancel()
         socket = null
-        engine?.detach()
+        engine?.detach(code)
         pingAt = 0L
     }
 
@@ -474,12 +478,21 @@ class ClipService : Service() {
         }
 
         override fun onRefused(item: String, code: String) {
-            History.update(this@ClipService, item) { it.copy(status = "failed") }
+            Log.w(TAG, "Item refused ($code): marked failed, not sent again")
+            refused(item, 0)
         }
 
         override fun onBackOff(ms: Long) {
             worker.postDelayed(pump, ms + 100)
         }
+    }
+
+    /** An item that will not be sent: failed in history, and one quiet notification. */
+    private fun refused(item: String, parts: Int) {
+        if (parts > 0) Log.w(TAG, "Dropped from the outbox: a frame over the relay's limit ($parts part(s))")
+        History.update(this, item) { it.copy(status = "failed") }
+        val name = History.entries.value.firstOrNull { it.item == item }?.let { it.name ?: if (it.type == "image") getString(R.string.an_image_lower) else null }
+        Notices.refused(this, name ?: getString(R.string.an_item_lower))
     }
 
     // -----------------------------------------------------------------
@@ -509,6 +522,8 @@ class ClipService : Service() {
 
     /** Called from the alarm, holding [lock]: ping, or reconnect. The lock is released on the answer. */
     fun watchdog(lock: PowerManager.WakeLock) {
+        // Built-in updates: once a day, piggybacking on the watchdog (no other alarm, no other service).
+        Updater.checkIfDue(this)
         worker.post {
             releaseWake()
             wake = lock

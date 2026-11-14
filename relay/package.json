@@ -1,6 +1,6 @@
 {
   "name": "clipway-relay",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Clipway relay: passes end-to-end encrypted clipboard items between the devices of a sync chain, without accounts.",
   "license": "AGPL-3.0-only",
   "private": true,

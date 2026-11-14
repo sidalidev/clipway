@@ -36,6 +36,7 @@ struct SettingsView: View {
 
     private var page: some View {
         @Bindable var model = model
+        @Bindable var updater = Updater.shared
         return VStack(alignment: .leading, spacing: Tokens.Space.l) {
             Text("Settings")
                 .font(Tokens.Typography.largeTitle)
@@ -60,6 +61,29 @@ struct SettingsView: View {
                 Toggle("Show in Dock", isOn: $model.showInDock)
             }
             .toggleStyle(.clipSwitch)
+
+            Card {
+                Toggle("Automatic updates", isOn: $updater.automatic)
+                    .toggleStyle(.clipSwitch)
+                Text(updateDetail)
+                    .font(Tokens.Typography.footnote)
+                    .foregroundStyle(Tokens.Colors.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: Tokens.Space.s) {
+                    if let release = updater.available {
+                        Button("Install \(release.version)…") { updater.offer() }
+                            .buttonStyle(.secondary)
+                    } else {
+                        Button("Check for Updates") { updater.check(manual: true) }
+                            .buttonStyle(.secondary)
+                            .disabled(updater.state == .checking)
+                    }
+                    Spacer()
+                    Text("Version \(AppModel.version)")
+                        .font(Tokens.Typography.footnote)
+                        .foregroundStyle(Tokens.Colors.secondaryText)
+                }
+            }
 
             PermissionsCard(preview: permissionsPreview)
 
@@ -112,6 +136,19 @@ struct SettingsView: View {
         .padding(.horizontal, Tokens.Space.xxl)
         .padding(.top, Tokens.Space.titlebar)
         .padding(.bottom, Tokens.Space.xxl)
+    }
+
+    private var updateDetail: String {
+        switch Updater.shared.state {
+        case .checking: return "Checking…"
+        case .upToDate: return "Clipway is up to date."
+        case .available(let r): return "Clipway \(r.version) is available."
+        case .downloading: return "Downloading the update…"
+        case .installing: return "Checking the signature and installing…"
+        case .failed(let message): return message
+        case .idle:
+            return "Checks clip.sidali.dev at launch and once a day, without any identifier. Installs only after you click Install, and only a version signed with Clipway's key."
+        }
     }
 
     private func applyRelay() {

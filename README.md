@@ -12,7 +12,7 @@ No account. Everything is end-to-end encrypted with a key that only your devices
 |---|---|---|---|
 | ![Pair nearby on the Mac: the same code on both screens](docs/screenshots/mac/pair-nearby-code-light.png) | ![History on the Mac](docs/screenshots/mac/history-dark.png) | ![Home on Android](docs/screenshots/android/light-home.png) | ![History on Android](docs/screenshots/android/dark-history.png) |
 
-> **Status: 0.4.0.** Both apps work end to end: texts through a relay, images and files directly (tested on a Mac and on the Android emulator, both ways), and since 0.4.0 images and files of 6 MB at most through the relay when the direct way is not possible (tested with the shared vectors, the relay tests and the command line client). The reference relay `clip.sidali.dev` still runs 0.3.0, texts only, until it is updated. Not yet tested on a physical phone, nor the direct transfer between two real devices on Wi-Fi. Pair nearby (Bluetooth, new in 0.2.0) is checked against the shared vectors without radio, and not yet tried between a real phone and a Mac.
+> **Status: 0.4.1.** Both apps now update themselves ([docs/UPDATES.md](docs/UPDATES.md)). 0.4.0: Both apps work end to end: texts through a relay, images and files directly (tested on a Mac and on the Android emulator, both ways), and since 0.4.0 images and files of 6 MB at most through the relay when the direct way is not possible (tested with the shared vectors, the relay tests and the command line client). The reference relay `clip.sidali.dev` still runs 0.3.0, texts only, until it is updated. Not yet tested on a physical phone, nor the direct transfer between two real devices on Wi-Fi. Pair nearby (Bluetooth, new in 0.2.0) is checked against the shared vectors without radio, and not yet tried between a real phone and a Mac.
 
 ## Principles
 
@@ -46,9 +46,9 @@ The whole protocol, with test vectors shared by the three parts: [docs/PROTOCOL.
 
 ## Install
 
-**Android** (Android 12 or later, no Google services needed): install with [Obtainium](https://github.com/ImranR98/Obtainium), which also keeps Clipway up to date. Add an app, paste `https://github.com/sidalidev/clipway`, and install. Obtainium checks the GitHub releases and offers each new version. Or download `clipway-<version>.apk` from the [latest release](https://github.com/sidalidev/clipway/releases/latest) and check it against its `.sha256` file and the signing certificate in [SECURITY.md](SECURITY.md).
+**Android** (Android 12 or later, no Google services needed): install with [Obtainium](https://github.com/ImranR98/Obtainium): add an app, paste `https://github.com/sidalidev/clipway`, and install. Since 0.4.1 Clipway also updates itself: it offers each new version on its Home screen, checks its signature, and Android asks you to confirm (Settings, Automatic updates, on by default). Obtainium keeps working too. Or download `clipway-<version>.apk` from the [latest release](https://github.com/sidalidev/clipway/releases/latest) and check it against its `.sha256` file and the signing certificate in [SECURITY.md](SECURITY.md).
 
-**Mac** (macOS 14 or later): download `clipway-mac-<version>.zip` from the [latest release](https://github.com/sidalidev/clipway/releases/latest), unzip it and move `Clipway.app` to Applications. The Mac app does not update itself yet: download the new zip from the releases page.
+**Mac** (macOS 14 or later): download `clipway-mac-<version>.zip` from the [latest release](https://github.com/sidalidev/clipway/releases/latest), unzip it and move `Clipway.app` to Applications. Since 0.4.1 it updates itself: the menu offers each new version, and Clipway checks its signature, replaces itself and opens again (Settings, Automatic updates, on by default). From 0.4.0, download 0.4.1 by hand once.
 
 There is no store release. To build from source instead:
 
@@ -59,7 +59,7 @@ cd mac && ./build.sh          # Release: build/Clipway.app, needs an https:// re
 cd mac && ./build.sh debug    # Debug: also accepts a relay on this Mac (http://127.0.0.1:7710)
 ```
 
-Move `Clipway.app` to Applications and open it. It lives in the menu bar (no Dock icon). It is signed ad hoc (no Apple Developer ID yet): if macOS says it cannot check the app, open System Settings, Privacy & Security, and choose Open Anyway. After each update, macOS asks once to let the new version read its key in the Keychain.
+Move `Clipway.app` to Applications and open it. It lives in the menu bar (no Dock icon). It is signed ad hoc (no Apple Developer ID yet): if macOS says it cannot check the app, open System Settings, Privacy & Security, and choose Open Anyway. Updating from 0.4.0, macOS asks once to let 0.4.1 read the key it kept in the Keychain (choose Always Allow); from then on the key is sealed by the Mac's Secure Enclave and updates keep the pairing without asking.
 
 **Android**:
 
@@ -104,7 +104,7 @@ Put a TLS proxy in front (Caddy, nginx and Traefik examples), keep client addres
 - **What the relay sees:** a random chain id, the time and size of each item, how many of your devices are connected, and your IP address while connected (never logged by the relay; on clip.sidali.dev the web server in front of it keeps IP addresses for 7 days). Not the content, file names or device names.
 - **The key is static.** Anyone with your 12 words can read what you send, including what they recorded earlier (no forward secrecy in version 1). If they leak, change the key (Mac: Settings, Change the key).
 - **Items waiting to leave the phone are kept in memory.** If Android stops Clipway before the relay has stored them, they stay "Sending" in history and you send them again.
-- **No automatic updates in the Mac app yet**, and it is signed ad hoc. On Android, Obtainium installs each new release.
+- **The Mac app is signed ad hoc** (no Apple Developer ID): macOS warns the first time you open it. Updates then install by themselves after a click ([docs/UPDATES.md](docs/UPDATES.md)).
 - **Not yet checked on a physical phone:** scanning the code with the camera, the password manager (Proton Pass), and a full day on battery.
 - English only.
 

@@ -108,6 +108,11 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSWindowDelegate, NS
         }
         menu.addItem(action("Settings…", #selector(openSettings), key: ","))
         menu.addItem(.separator())
+        if let release = Updater.shared.available {
+            menu.addItem(action("Update to Clipway \(release.version)…", #selector(checkUpdates)))
+        } else {
+            menu.addItem(action("Check for Updates…", #selector(checkUpdates)))
+        }
         menu.addItem(action("About Clipway", #selector(openAbout)))
         menu.addItem(action("What leaves your device", #selector(openWhatLeaves)))
         menu.addItem(.separator())
@@ -195,6 +200,7 @@ final class StatusItemController: NSObject, NSMenuDelegate, NSWindowDelegate, NS
     @objc private func openSettings() { router.show(.settings) }
     @objc private func openAbout() { router.show(.about) }
     @objc private func openWhatLeaves() { router.show(.whatLeaves) }
+    @objc private func checkUpdates() { Updater.shared.offer() }
     @objc private func quit() { NSApp.terminate(nil) }
 
     @objc private func sendFile() {

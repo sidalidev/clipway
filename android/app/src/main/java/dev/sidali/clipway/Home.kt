@@ -137,6 +137,8 @@ fun HomeTab(go: (Page) -> Unit, onReset: () -> Unit, openHistory: () -> Unit) {
             Spacer(Modifier.height(Tokens.Space.l))
         }
 
+        UpdateBanner()
+
         if (!paused) {
             StatusCard(link, devices, mac)
             Spacer(Modifier.height(Tokens.Space.xxl))
@@ -520,6 +522,9 @@ fun SettingsTab(go: (Page) -> Unit) {
             Hairline()
             LinkRow(stringResource(R.string.permissions), detail = stringResource(R.string.permissions_detail)) { go(Page.Permissions) }
         }
+        Spacer(Modifier.height(Tokens.Space.xxl))
+
+        UpdateSettings()
         Spacer(Modifier.height(Tokens.Space.xxl))
 
         SectionLabel(stringResource(R.string.your_key))

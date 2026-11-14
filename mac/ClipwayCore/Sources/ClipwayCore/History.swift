@@ -78,7 +78,7 @@ public struct HistoryEntry: Codable, Equatable, Identifiable, Sendable {
 }
 
 /// The encrypted history: history.bin (rows and texts) and items/<id>.bin (images), each sealed with
-/// AES-256-GCM under a 32-byte key kept in the Keychain. Erasing the key makes them unreadable.
+/// AES-256-GCM under a 32-byte key sealed by the Secure Enclave (the app's Keychain enum). Erasing the key makes them unreadable.
 public final class HistoryStore {
     public static let maxItems = 50
     public static let maxBytes = 200 * 1_048_576

@@ -47,12 +47,20 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         demo(intent)
+        Updater.restore(this)
+        update(intent)
         setContent { ClipwayTheme { App() } }
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         demo(intent)
+        update(intent)
+    }
+
+    /** The update notification was tapped: install. */
+    private fun update(i: android.content.Intent?) {
+        if (i?.action == Updater.ACTION_INSTALL) Updater.install(this)
     }
 
     /** Debug builds only: Pair nearby talks to a Mac played in the app (NearbyDemo.kt, android/README.md). */
@@ -66,6 +74,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        Updater.onOpen(this)
+        // The system confirmation of an update, kept until an activity is in the foreground.
+        Updater.confirmation.value?.let {
+            Updater.confirmation.value = null
+            try {
+                startActivity(it)
+            } catch (_: Exception) {
+            }
+        }
         // Coming to the foreground reconnects at once (section 5.1).
         if (Vault.paired(this)) ClipService.start(this)
     }
@@ -119,6 +136,8 @@ private fun Main(onReset: () -> Unit) {
     }
     BackHandler(stack.size > 1) { back() }
     BackHandler(stack.size == 1 && tab != Tab.Home.name) { tab = Tab.Home.name }
+
+    UpdateConfirmation()
 
     // What's new: once after each update.
     LaunchedEffect(Unit) {

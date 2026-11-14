@@ -13,8 +13,8 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
-    MARKETING_VERSION: "0.4.0"
-    CURRENT_PROJECT_VERSION: "6"
+    MARKETING_VERSION: "0.4.1"
+    CURRENT_PROJECT_VERSION: "7"
     # Ad hoc signature: no Apple team, no provisioning profile.
     CODE_SIGN_IDENTITY: "-"
     CODE_SIGN_STYLE: Manual
@@ -40,6 +40,8 @@ targets:
         buildPhase: resources
     dependencies:
       - package: ClipwayCore
+      # Embedded in Contents/XPCServices: installs updates (docs/UPDATES.md).
+      - target: ClipwayUpdater
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.sidali.clipway
@@ -76,6 +78,40 @@ targets:
         NSBluetoothAlwaysUsageDescription: "Clipway uses Bluetooth only while you pair a phone nearby, to show the same code on both screens."
         # Images and files go straight to the phone over the local network (docs/PROTOCOL.md, section 14).
         NSLocalNetworkUsageDescription: "Clipway sends images and files straight to your phone over your local network, without any server."
+  # The installer of automatic updates (docs/UPDATES.md): an XPC service only Clipway can reach,
+  # outside the sandbox, with no entitlement. It replaces Clipway.app with a newer version signed by
+  # Clipway's update key, and does nothing else.
+  ClipwayUpdater:
+    type: xpc-service
+    platform: macOS
+    sources:
+      - path: ClipwayUpdater
+    dependencies:
+      - package: ClipwayCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.sidali.clipway.updater
+        PRODUCT_NAME: ClipwayUpdater
+        INFOPLIST_FILE: ClipwayUpdater/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+      configs:
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: dev.sidali.clipway.debug.updater
+    info:
+      path: ClipwayUpdater/Info.plist
+      properties:
+        CFBundleName: ClipwayUpdater
+        CFBundleDisplayName: Clipway Updater
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundlePackageType: XPC!
+        CFBundleExecutable: $(EXECUTABLE_NAME)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        NSHumanReadableCopyright: "Sid, sidali.dev. Apache License 2.0."
+        XPCService:
+          ServiceType: Application
 schemes:
   Clipway:
     build:

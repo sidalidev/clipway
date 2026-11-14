@@ -58,6 +58,9 @@ class Engine(
     @Volatile
     var relayParts = 1
         private set
+    /** The largest frame the relay takes, from welcome (never more than [Protocol.FRAME_MAX]). */
+    var frameMax = Protocol.FRAME_MAX
+        private set
     private var wire: Wire? = null
     private var epoch = ""
 
@@ -66,6 +69,14 @@ class Engine(
     private var ref = 0
     private var nextPart = 0
     private var holdUntil = 0L
+
+    /**
+     * Connections cut while the same item was being uploaded, before `stored`. An item the relay
+     * keeps closing the connection on (a frame over its limit: close code 1009) is dropped after
+     * [CUTS_MAX] tries instead of being sent again forever.
+     */
+    private var cutItem: String? = null
+    private var cuts = 0
 
     /** Item being received. */
     private var inSeq = -1L
@@ -83,7 +94,22 @@ class Engine(
         resetIncoming()
     }
 
-    fun detach() {
+    /**
+     * The connection is gone, with the WebSocket close [code] when there is one. An upload cut in
+     * the middle is sent again after the next sync, unless the relay closed with 1009 (a frame too
+     * big for it) or the same item was cut [CUTS_MAX] times in a row: then it fails, once.
+     */
+    fun detach(code: Int = 1000) {
+        val u = upload
+        if (u != null && nextPart > 0) {
+            if (cutItem == u.item) cuts++ else { cutItem = u.item; cuts = 1 }
+            if (code == CLOSE_TOO_BIG || cuts >= CUTS_MAX) {
+                outbox.remove(u.item)
+                cutItem = null
+                cuts = 0
+                events.onRefused(u.history, if (code == CLOSE_TOO_BIG) "too_big" else "cut")
+            }
+        }
         wire = null
         synced = false
         // The upload in progress is sent again, from part 0 and with a new ref, after the next sync.
@@ -105,6 +131,7 @@ class Engine(
                 epoch = f.epoch
                 devices = f.devices
                 relayParts = f.parts
+                frameMax = f.frame.coerceIn(FRAME_MIN, Protocol.FRAME_MAX)
                 events.onPresence(devices)
                 // The stored epoch (not the new one): a different epoch makes the relay send its whole queue.
                 val after = if (cursor.epoch == f.epoch) cursor.after else 0L
@@ -128,6 +155,7 @@ class Engine(
                 if (u != null && f.ref == ref) {
                     upload = null
                     nextPart = 0
+                    if (cutItem == u.item) { cutItem = null; cuts = 0 }
                     outbox.remove(u.item)
                     mine[f.seq] = u.history
                     while (mine.size > 200) mine.remove(mine.keys.first())
@@ -207,19 +235,29 @@ class Engine(
     fun pump(now: Long): Boolean {
         val w = wire ?: return false
         if (!synced || now < holdUntil) return false
-        var u = upload
-        if (u == null) {
-            u = outbox.next() ?: return false
-            upload = u
-            ref = (ref + 1) and Int.MAX_VALUE
-            nextPart = 0
+        while (true) {
+            var u = upload
+            if (u == null) {
+                u = outbox.next() ?: return false
+                upload = u
+                ref = (ref + 1) and Int.MAX_VALUE
+                nextPart = 0
+            }
+            // Never a frame over the relay's limit: it would close the connection (1009), and the
+            // item would be sent again at every reconnection. Checked for every part before the first.
+            if (nextPart == 0 && !Outbox.fits(u, frameMax)) {
+                upload = null
+                outbox.remove(u.item)
+                events.onRefused(u.history, "too_big")
+                continue
+            }
+            while (nextPart < u.parts.size) {
+                if (w.queueSize() > QUEUE_HIGH) return true
+                if (!w.send(Protocol.Frames.item(ref, nextPart, u.parts.size, u.parts[nextPart]))) return false
+                nextPart++
+            }
+            return false
         }
-        while (nextPart < u.parts.size) {
-            if (w.queueSize() > QUEUE_HIGH) return true
-            if (!w.send(Protocol.Frames.item(ref, nextPart, u.parts.size, u.parts[nextPart]))) return false
-            nextPart++
-        }
-        return false
     }
 
     /** Application heartbeat. */
@@ -229,6 +267,13 @@ class Engine(
         /** Bytes queued in the socket above which the next part waits. */
         const val QUEUE_HIGH = 4L * 1_048_576
         const val BACK_OFF_MS = 30_000L
+        /** WebSocket close code "message too big", sent by the relay's WebSocket library. */
+        const val CLOSE_TOO_BIG = 1009
+        const val CUTS_MAX = 3
+        /** A relay announcing a smaller frame than this is not believed (it could not carry a text). */
+        const val FRAME_MIN = 16 * 1024
+        /** Room the relay keeps in a frame for the fields it adds when it forwards a part (seq, ts). */
+        const val FRAME_SLACK = 256
     }
 }
 
@@ -245,9 +290,23 @@ class Outbox {
 
     private val queue = ArrayDeque<Pending>()
 
+    /** Queues [p], unless it is already there or one of its frames could never be sent. */
     @Synchronized
-    fun add(p: Pending) {
+    fun add(p: Pending): Boolean {
+        if (!fits(p)) return false
         if (queue.none { it.item == p.item }) queue.addLast(p)
+        return true
+    }
+
+    /**
+     * Removes what can never be sent (a frame over [frameMax]) and returns it, so that the caller
+     * marks it failed. Run when the service starts; the engine checks again before each upload.
+     */
+    @Synchronized
+    fun purge(frameMax: Int = Protocol.FRAME_MAX): List<Pending> {
+        val bad = queue.filter { !fits(it, frameMax) }
+        queue.removeAll(bad.toSet())
+        return bad
     }
 
     @Synchronized
@@ -263,4 +322,19 @@ class Outbox {
 
     @Synchronized
     fun clear() = queue.clear()
+
+    companion object {
+        /**
+         * Every part of [p] fits in one frame of [frameMax] bytes, with the room the relay keeps
+         * when it forwards it: the relay closes the connection on a larger frame. Frames are ASCII.
+         */
+        fun fits(p: Pending, frameMax: Int = Protocol.FRAME_MAX): Boolean =
+            p.parts.isNotEmpty() && p.parts.size <= Protocol.PARTS_MAX && p.parts.all { e ->
+                frameLength(e, p.parts.size) <= frameMax && e.enc.length + Engine.FRAME_SLACK <= frameMax
+            }
+
+        /** Bytes of the item frame of [e] (with the largest ref and part numbers). */
+        fun frameLength(e: Crypto.Envelope, parts: Int): Int =
+            Protocol.Frames.item(Int.MAX_VALUE, parts - 1, parts, e).length
+    }
 }

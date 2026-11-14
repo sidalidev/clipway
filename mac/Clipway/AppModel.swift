@@ -39,12 +39,12 @@ final class AppModel {
             case .unknownWord: "Check the words: one of them is not in the list."
             case .checksum: "These words do not form a valid key."
             case .badCode: "This pairing code is not valid."
-            case .keychain: "The key could not be saved in the Keychain."
+            case .keychain: "The key could not be saved on this Mac."
             }
         }
     }
 
-    // MARK: Settings (UserDefaults; the key lives in the Keychain)
+    // MARK: Settings (UserDefaults; the key is sealed by the Secure Enclave, see Keychain)
 
     var relay: String { didSet { defaults.set(relay, forKey: Keys.relay) } }
     var sendAutomatically: Bool { didSet { defaults.set(sendAutomatically, forKey: Keys.sendAutomatically) } }
@@ -206,7 +206,7 @@ final class AppModel {
     }
 
     private func connectionClosed(_ code: Int?) {
-        engine?.disconnected()
+        engine?.disconnected(code: code)
         if code == 4001 {
             // The chain was erased on the relay, from another device. Remembered across restarts.
             client.stop()
@@ -292,7 +292,7 @@ final class AppModel {
     /// Pair a phone is offered: not paired yet, or the key was erased from another device.
     var needsPairing: Bool { !isPaired || link == .erasedElsewhere }
 
-    /// Draws a new key, keeps it in the Keychain and connects. The pairing window shows it.
+    /// Draws a new key, keeps it sealed on this Mac and connects. The pairing window shows it.
     @discardableResult
     func createChain(askNotifications: Bool = true) -> Bool {
         adopt(secret: ClipwayCrypto.generateSecret(), relay: nil, askNotifications: askNotifications) == nil
@@ -357,7 +357,7 @@ final class AppModel {
         return nil
     }
 
-    /// Stops syncing without touching the Keychain.
+    /// Stops syncing without touching the stored key.
     private func leaveChain() {
         // A nearby attempt would hand over the key being replaced.
         if let owner = nearby.owner { nearby.stop(owner: owner) }
@@ -888,8 +888,7 @@ final class AppModel {
         if let erasing {
             relayErased = await RelayClient.eraseChain(relay: relayAddress, proofHex: erasing.proofHex)
         }
-        Keychain.delete(Keychain.chain)
-        Keychain.delete(Keychain.historyKey)
+        Keychain.deleteAll()
         store?.wipe()
         store = nil
         try? FileManager.default.removeItem(at: Places.support)

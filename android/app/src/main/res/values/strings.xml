@@ -186,6 +186,29 @@
     <!-- Receiving -->
     <string name="channel_connection">Connection</string>
     <string name="channel_received">Received</string>
+    <string name="channel_updates">Updates</string>
+    <string name="update_notification_title">Clipway update</string>
+    <string name="update_notification_body">Clipway %1$s is available. Tap to install.</string>
+    <string name="update_notification_confirm">Tap to finish installing Clipway %1$s.</string>
+    <string name="updates">Updates</string>
+    <string name="automatic_updates">Automatic updates</string>
+    <string name="automatic_updates_detail">Checks clip.sidali.dev when you open Clipway and once a day, without any identifier. Installs only after you tap Install, and only an APK signed with Clipway\'s key.</string>
+    <string name="check_updates">Check for updates</string>
+    <string name="checking_updates">Checking…</string>
+    <string name="up_to_date">Clipway %1$s is up to date.</string>
+    <string name="update_check_failed">Couldn\'t reach clip.sidali.dev. Try again later.</string>
+    <string name="update_available">Clipway %1$s is available</string>
+    <string name="update_install">Install</string>
+    <string name="update_permission">To install it, allow Clipway to install apps. Android asks once.</string>
+    <string name="update_permission_action">Allow</string>
+    <string name="update_downloading">Downloading %1$d%%</string>
+    <string name="update_verifying">Checking the signature…</string>
+    <string name="update_installing">Confirm the installation in the window Android shows.</string>
+    <string name="update_failed_network">The download did not finish. Check your connection and try again.</string>
+    <string name="update_failed_checksum">The download does not match the published checksum. Nothing was installed.</string>
+    <string name="update_failed_certificate">The download is not signed with Clipway\'s key. Nothing was installed.</string>
+    <string name="update_failed_other">The update could not be installed. Clipway keeps working with this version.</string>
+    <string name="update_failed_storage">Not enough storage for the update.</string>
     <string name="copied_from">Copied from %1$s</string>
     <string name="received_file">Received %1$s from %2$s</string>
     <string name="channel_direct">Images and files</string>
@@ -197,6 +220,8 @@
     <string name="not_sent_expired_body">%1$s didn\'t answer. Both need to be on, with Clipway on, on the same network.</string>
     <string name="not_sent_failed_body">The transfer broke. Try again.</string>
     <string name="an_image_lower">An image</string>
+    <string name="an_item_lower">An item</string>
+    <string name="not_sent_refused_body">It is too large for the relay, so Clipway stopped trying. Send it again on the same network as your Mac.</string>
 
     <!-- History -->
     <string name="history">History</string>
@@ -313,6 +338,8 @@
     <string name="leaves_time_body">Items wait on the relay for a device that is offline, 24 hours at most, in memory only. Then they are erased. The relay never logs your IP address. On clip.sidali.dev, the web server in front of it keeps IP addresses for 7 days.</string>
     <string name="leaves_status_title">The relay\'s status</string>
     <string name="leaves_status_body">Once a day, Clipway asks the relay %1$s if it is up and which app versions it accepts. No key and no content, only the app\'s name and version.</string>
+    <string name="leaves_updates_title">Updates</string>
+    <string name="leaves_updates_body">When Automatic updates is on, Clipway asks clip.sidali.dev once a day and when you open it whether a new version exists, whatever relay you use. No key, no content and no identifier, only the app\'s name and version. The new version downloads only when you tap Install, and installs only if it is signed with Clipway\'s key.</string>
     <string name="leaves_never_title">Never sent</string>
     <string name="leaves_never_body">What apps mark as sensitive, like a password copied from your password manager.</string>
     <string name="leaves_bluetooth_title">Bluetooth, only while you pair</string>

@@ -77,7 +77,7 @@ object Sender {
                     if (keep) o.content else null,
                 )
                 val built = Protocol.build(keys, o.type, device, now, o.content, item)
-                outbox.add(Outbox.Pending(item, o.type, fp, built.parts))
+                check(outbox.add(Outbox.Pending(item, o.type, fp, built.parts))) { "a frame over the relay's limit" }
                 ClipService.kick(c)
             } catch (e: Exception) {
                 Log.w("ClipwaySender", "Not sent: ${e.javaClass.simpleName}")
@@ -128,7 +128,7 @@ object Sender {
                     History.update(c, history) { it.copy(status = "sending") }
                 }
                 val built = Protocol.chunked(keys, device, now, o.type, o.mime, o.name, o.content, item)
-                outbox.add(Outbox.Pending(item, "chunked", fp, built.parts, history))
+                check(outbox.add(Outbox.Pending(item, "chunked", fp, built.parts, history))) { "a frame over the relay's limit" }
                 ClipService.kick(c)
             } catch (e: Exception) {
                 Log.w("ClipwaySender", "Not sent: ${e.javaClass.simpleName}")
@@ -167,7 +167,7 @@ object Sender {
                     if (o.type == "image") o.content else null,
                 )
                 val built = Protocol.offer(keys, device, now, o.type, o.mime, o.name, o.content, port, hosts, item)
-                outbox.add(Outbox.Pending(item, "offer", fp, built.parts))
+                check(outbox.add(Outbox.Pending(item, "offer", fp, built.parts))) { "a frame over the relay's limit" }
                 ClipService.kick(c)
             } catch (e: Exception) {
                 Log.w("ClipwaySender", "Not offered: ${e.javaClass.simpleName}")

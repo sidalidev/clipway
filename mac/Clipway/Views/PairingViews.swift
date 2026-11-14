@@ -133,7 +133,7 @@ struct KeyCard: View {
                             .buttonStyle(.secondary)
                     }
                 }
-                Text("These 12 words are your key. Anyone who has them can read what you copy. Your Mac keeps them in its Keychain.")
+                Text("These 12 words are your key. Anyone who has them can read what you copy. Your Mac keeps them encrypted, with a key only this Mac can use.")
                     .font(Tokens.Typography.callout)
                     .foregroundStyle(Tokens.Colors.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)

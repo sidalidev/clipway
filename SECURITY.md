@@ -29,4 +29,10 @@ Android releases on [GitHub](https://github.com/sidalidev/clipway/releases) are 
 SHA-256: 0B:48:D1:79:12:1E:2A:F1:2F:34:F7:3F:9B:68:DB:B8:96:6C:D6:49:51:74:A5:07:95:9E:30:9A:88:FE:A3:8E
 ```
 
-Check a downloaded APK with `apksigner verify --print-certs clipway-<version>.apk`, or compare with the fingerprint that the About screen shows for the installed app. Each APK and zip in a release comes with a `.sha256` file. The Mac app is signed ad hoc for now (no Apple Developer ID): About shows its code directory hash.
+Check a downloaded APK with `apksigner verify --print-certs clipway-<version>.apk`, or compare with the fingerprint that the About screen shows for the installed app. Each APK and zip in a release comes with a `.sha256` file. The Mac app is signed ad hoc for now (no Apple Developer ID): About shows its code directory hash. Its automatic updates are signed with an Ed25519 key whose public half is in `mac/ClipwayCore/Sources/ClipwayCore/Update.swift`:
+
+```
+Ed25519 (base64): UxhFUIq3/gngOvPb31KTZV5p0kQOTPMaGRhG7eqBxik=
+```
+
+How updates are checked on both apps: [docs/UPDATES.md](docs/UPDATES.md).

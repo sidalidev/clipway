@@ -29,6 +29,9 @@
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- Built-in updates: hands a verified APK to PackageInstaller, which always asks the user to
+         confirm (docs/UPDATES.md). Granted by the user in "Install unknown apps", when they tap Install. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
@@ -148,6 +151,9 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+
+        <!-- The result of an update's PackageInstaller session (explicit PendingIntent only). -->
+        <receiver android:name=".InstallResult" android:exported="false" />
 
         <!-- Read-only copies of received images, for the clipboard. Not exported: the clipboard grants
              the app that pastes a temporary read permission. -->

@@ -641,7 +641,7 @@ object Protocol {
     /** A frame from the relay. Anything unknown or malformed is [Other]. */
     sealed class Incoming {
         /** [parts]: the most parts of one item this relay takes (1 for a relay older than 0.4.0). */
-        class Welcome(val epoch: String, val devices: Int, val parts: Int = 1) : Incoming()
+        class Welcome(val epoch: String, val devices: Int, val parts: Int = 1, val frame: Int = FRAME_MAX) : Incoming()
         class Synced(val last: Long) : Incoming()
         class Item(val seq: Long, val part: Int, val parts: Int, val ts: Long, val blob: Crypto.Envelope) : Incoming()
         class Stored(val ref: Int, val seq: Long) : Incoming()
@@ -657,7 +657,9 @@ object Protocol {
     fun parseFrame(text: String): Incoming = try {
         val o = JSONObject(text)
         when (o.optString("kind")) {
-            "welcome" -> Incoming.Welcome(o.getString("epoch"), o.optInt("devices", 1), o.optJSONObject("limits")?.optInt("parts", 1) ?: 1)
+            "welcome" -> o.optJSONObject("limits").let { l ->
+                Incoming.Welcome(o.getString("epoch"), o.optInt("devices", 1), l?.optInt("parts", 1) ?: 1, l?.optInt("frame", FRAME_MAX) ?: FRAME_MAX)
+            }
             "synced" -> Incoming.Synced(o.getLong("last"))
             "item" -> {
                 val b = o.getJSONObject("blob")

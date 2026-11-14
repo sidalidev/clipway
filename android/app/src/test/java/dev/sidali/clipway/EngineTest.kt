@@ -36,7 +36,8 @@ class EngineTest {
         override fun onPresence(devices: Int) { presence = devices }
         override fun onStored(item: String, seq: Long, othersOnline: Boolean) { stored += item to seq }
         override fun onDelivered(seq: Long) { acked += seq }
-        override fun onRefused(item: String, code: String) = Unit
+        val refused = ArrayList<Pair<String, String>>()
+        override fun onRefused(item: String, code: String) { refused += item to code }
         override fun onBackOff(ms: Long) = Unit
     }
 
@@ -215,5 +216,141 @@ class EngineTest {
         assertEquals(3, w.sent.size)
         e.pump(Engine.BACK_OFF_MS + 1)
         assertEquals(4, w.sent.size)
+    }
+
+    /** An item with one envelope of [encLength] base64 characters (never sealed: only its size matters). */
+    private fun oversized(encLength: Int, item: String = Protocol.newItemId()) =
+        Outbox.Pending(item, "text", "", listOf(Crypto.Envelope("0".repeat(24), "A".repeat(encLength))))
+
+    private fun connect(e: Engine, w: Wire, frame: Int? = null) {
+        e.attach(w)
+        val limits = if (frame == null) "{}" else """{"frame":$frame}"""
+        e.onFrame("""{"kind":"welcome","v":1,"epoch":"e","devices":2,"limits":$limits}""", 0)
+        e.onFrame("""{"kind":"synced","last":0}""", 0)
+    }
+
+    /**
+     * The loop seen in production: a frame over the relay's limit, the relay closes (1009), the
+     * phone reconnects and sends it again, forever. Now it is never written to the socket, it
+     * fails once, and the next item goes.
+     */
+    @Test
+    fun aFrameOverTheLimitIsNeverSentAndDoesNotBlockTheQueue() {
+        val outbox = Outbox()
+        val ev = Events()
+        val e = Engine(keys, outbox, Cursor(), ev)
+        val bad = oversized(Protocol.FRAME_MAX)
+        // Queued by an older build, before the check at enqueue time: forced into the queue.
+        val field = Outbox::class.java.getDeclaredField("queue").apply { isAccessible = true }
+        @Suppress("UNCHECKED_CAST")
+        (field.get(outbox) as ArrayDeque<Outbox.Pending>).addLast(bad)
+        val good = Protocol.build(keys, "text", phone, 1, "after".toByteArray())
+        outbox.add(Outbox.Pending(good.head.item, "text", good.head.fp!!, good.parts))
+        for (round in 1..5) {
+            val w = Wire()
+            connect(e, w)
+            assertTrue("round $round: nothing over the limit is written", w.sent.all { it.length <= Protocol.FRAME_MAX })
+            // The relay stores the good item when it gets it.
+            w.sent.map { JSONObject(it) }.filter { it.getString("kind") == "item" }.forEach {
+                e.onFrame("""{"kind":"stored","ref":${it.getInt("ref")},"seq":$round}""", 0)
+            }
+            e.detach(1000)
+        }
+        assertEquals(listOf(bad.item to "too_big"), ev.refused)
+        assertEquals(listOf(good.head.item), ev.stored.map { it.first })
+        assertEquals(0, outbox.size())
+    }
+
+    @Test
+    fun theRelaysOwnFrameLimitIsKept() {
+        val outbox = Outbox()
+        val ev = Events()
+        val e = Engine(keys, outbox, Cursor(), ev)
+        val text = Protocol.build(keys, "text", phone, 1, ByteArray(40_000) { 'q'.code.toByte() })
+        outbox.add(Outbox.Pending(text.head.item, "text", text.head.fp!!, text.parts))
+        val w = Wire()
+        connect(e, w, frame = 32 * 1024)
+        assertEquals(listOf("sync"), w.kinds())
+        assertEquals(listOf(text.head.item to "too_big"), ev.refused)
+        assertEquals(0, outbox.size())
+    }
+
+    @Test
+    fun theOutboxRefusesAndPurgesWhatCanNeverBeSent() {
+        val outbox = Outbox()
+        assertEquals(false, outbox.add(oversized(Protocol.FRAME_MAX)))
+        assertEquals(false, outbox.add(oversized(Protocol.FRAME_MAX - Engine.FRAME_SLACK + 1)))
+        assertEquals(0, outbox.size())
+        // The largest text the app builds fits, with the room the relay keeps.
+        val big = Protocol.build(keys, "text", phone, 1, ByteArray(Crypto.TEXT_MAX) { 'z'.code.toByte() })
+        assertTrue(outbox.add(Outbox.Pending(big.head.item, "text", big.head.fp!!, big.parts)))
+        // So does every part of the largest image through the relay.
+        val chunked = Protocol.chunked(keys, phone, 1, "image", "image/jpeg", "x".repeat(Protocol.NAME_MAX), ByteArray(Crypto.RELAY_FILE_MAX))
+        assertTrue(Outbox.fits(Outbox.Pending(chunked.head.item, "chunked", "", chunked.parts)))
+        // purge keeps what fits a smaller relay limit and returns the rest.
+        assertEquals(listOf(big.head.item), outbox.purge(64 * 1024).map { it.item })
+        assertEquals(0, outbox.size())
+    }
+
+    /** The relay closes with 1009 right after an upload: the item fails instead of being sent again. */
+    @Test
+    fun closedWith1009DuringAnUploadFailsTheItem() {
+        val outbox = Outbox()
+        val ev = Events()
+        val e = Engine(keys, outbox, Cursor(), ev)
+        val a = Protocol.build(keys, "text", phone, 1, "a".toByteArray())
+        val b = Protocol.build(keys, "text", phone, 1, "b".toByteArray())
+        outbox.add(Outbox.Pending(a.head.item, "text", a.head.fp!!, a.parts))
+        outbox.add(Outbox.Pending(b.head.item, "text", b.head.fp!!, b.parts))
+        val w1 = Wire()
+        connect(e, w1)
+        assertEquals(listOf("sync", "item"), w1.kinds())
+        e.detach(Engine.CLOSE_TOO_BIG)
+        assertEquals(listOf(a.head.item to "too_big"), ev.refused)
+        val w2 = Wire()
+        connect(e, w2)
+        // The next item goes; the refused one never again.
+        val sent = w2.sent.drop(1).map { JSONObject(it) }
+        assertEquals(1, sent.size)
+        assertEquals(1, outbox.size())
+    }
+
+    /** Cut three times in a row on the same item, whatever the close code: it fails, the queue moves on. */
+    @Test
+    fun anItemCutOnEveryTryFailsAfterThree() {
+        val outbox = Outbox()
+        val ev = Events()
+        val e = Engine(keys, outbox, Cursor(), ev)
+        val a = Protocol.build(keys, "text", phone, 1, "a".toByteArray())
+        outbox.add(Outbox.Pending(a.head.item, "text", a.head.fp!!, a.parts))
+        repeat(Engine.CUTS_MAX - 1) {
+            connect(e, Wire())
+            e.detach(-1)
+        }
+        assertTrue(ev.refused.isEmpty())
+        assertEquals(1, outbox.size())
+        connect(e, Wire())
+        e.detach(-1)
+        assertEquals(listOf(a.head.item to "cut"), ev.refused)
+        assertEquals(0, outbox.size())
+    }
+
+    /** A cut followed by stored resets the count: one bad connection does not doom the next item. */
+    @Test
+    fun storedResetsTheCutCount() {
+        val outbox = Outbox()
+        val ev = Events()
+        val e = Engine(keys, outbox, Cursor(), ev)
+        val a = Protocol.build(keys, "text", phone, 1, "a".toByteArray())
+        outbox.add(Outbox.Pending(a.head.item, "text", a.head.fp!!, a.parts))
+        connect(e, Wire())
+        e.detach(-1)
+        connect(e, Wire())
+        e.detach(-1)
+        val w = Wire()
+        connect(e, w)
+        e.onFrame("""{"kind":"stored","ref":${JSONObject(w.sent.last()).getInt("ref")},"seq":1}""", 0)
+        assertTrue(ev.refused.isEmpty())
+        assertEquals(0, outbox.size())
     }
 }

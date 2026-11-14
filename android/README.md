@@ -11,7 +11,7 @@ export JAVA_HOME=<JDK 21>            # Android Studio's bundled runtime works
 ./gradlew :app:assembleRelease -Punsigned
 ```
 
-Release signing reads `~/.clipway/keystore.properties` (never in the repository).
+Release signing reads `~/.clipway/keystore.properties` (never in the repository). A whole release (signed APK, Mac zip, `update.json`): `tools/release.sh` at the root, see [../docs/UPDATES.md](../docs/UPDATES.md).
 
 ## Where things are
 

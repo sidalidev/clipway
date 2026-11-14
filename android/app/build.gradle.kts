@@ -39,11 +39,14 @@ android {
         applicationId = "dev.sidali.clipway"
         minSdk = 31
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.4.0"
+        versionCode = 7
+        versionName = "0.4.1"
         buildConfigField("String", "SECURITY_REVIEW", "\"$lastSecurityReview\"")
         // Reference relay; any relay can be set in the app.
         buildConfigField("String", "DEFAULT_RELAY", "\"https://clip.sidali.dev\"")
+        // Built-in updates (docs/UPDATES.md): release builds install only an APK signed with this
+        // certificate, the one in SECURITY.md (SHA-256 of the DER certificate).
+        buildConfigField("String", "UPDATE_CERT_SHA256", "\"0b48d179121e2af12f34f73f9b68dbb8966cd6495174a507959e309a88fea38e\"")
     }
     signingConfigs {
         if (signing.exists()) create("release") {

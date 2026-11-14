@@ -302,6 +302,11 @@ object Notices {
         quiet(c, c.getString(R.string.not_sent_title, name), body)
     }
 
+    /** The relay refused an item, or kept closing the connection on it: it is not sent again. */
+    fun refused(c: Context, name: String) {
+        quiet(c, c.getString(R.string.not_sent_title, name), c.getString(R.string.not_sent_refused_body))
+    }
+
     /** An image or a file the Mac offered could not be fetched. */
     fun notReceived(c: Context, name: String, from: String, network: Boolean) {
         quiet(c, c.getString(R.string.not_received_network, name, from), c.getString(if (network) R.string.not_received_network_body else R.string.not_received_failed_body))

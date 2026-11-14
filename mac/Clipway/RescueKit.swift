@@ -118,7 +118,7 @@ private struct TrustPage: View {
             item("What this is",
                  "The owner of this kit uses Clipway to pass what they copy between their computer and their phone. Everything is encrypted with the key on the first page.")
             item("Where the words are",
-                 "On the first page of this kit, and in the Keychain of their Mac. Clipway on their phone keeps them too.")
+                 "On the first page of this kit, and encrypted on their Mac. Clipway on their phone keeps them too.")
             item("Which app",
                  "Clipway, for Mac and Android, made by Sid (sidali.dev). Install it, then choose Join with 12 words on a Mac, or Type the 12 words on a phone.")
             item("Reading the history without the app",

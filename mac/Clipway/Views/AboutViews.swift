@@ -210,6 +210,8 @@ struct WhatLeavesView: View {
                             detail: "Up to 24 hours, in the relay's memory, for a device that is offline. Then it is erased. The relay never logs your IP address. On clip.sidali.dev, the web server in front of it keeps IP addresses for 7 days.")
                     InfoRow(symbol: "dot.radiowaves.left.and.right", title: "The relay's status",
                             detail: "Once a day, Clipway asks the relay if it is up and which app versions it accepts. No key and no content, only the app's name and version.")
+                    InfoRow(symbol: "arrow.down.circle", title: "Updates",
+                            detail: "When Automatic updates is on, at launch and once a day, Clipway asks clip.sidali.dev if a new version exists, whatever relay you use. No key, no content and no identifier, only the app's name and version. An update downloads only when you click Install, and installs only if it carries Clipway's signature.")
                     InfoRow(symbol: "antenna.radiowaves.left.and.right", title: "Bluetooth, only while you pair",
                             detail: "While the Pair nearby window is open, 2 minutes at most, devices in Bluetooth range can see that a Clipway Mac is pairing and read its Bluetooth name. The key goes to your phone encrypted, only after you press Pair on both. No location is collected, and nothing about it is stored.")
                     InfoRow(symbol: "hand.raised", title: "Never sent",
@@ -223,7 +225,7 @@ struct WhatLeavesView: View {
                 SectionTitle("Stays on this Mac")
                 Card {
                     InfoRow(symbol: "key", title: "The key",
-                            detail: "In the Keychain of this Mac, never synced to iCloud.")
+                            detail: "Encrypted with a key of this Mac's Secure Enclave, which no other computer can use, never synced to iCloud.")
                     InfoRow(symbol: "clock.arrow.circlepath", title: "History",
                             detail: "The last 50 items, encrypted. Erase everything destroys the key, which makes it unreadable.")
                     InfoRow(symbol: "folder", title: "Received files",
