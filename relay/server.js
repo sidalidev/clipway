@@ -21,16 +21,20 @@
 //   GET    /health                          { ok, chains, connections, items, bytes, uptime, version }
 //   GET    /.well-known/clipway-relay.json  protocol version, minimum clients, status, limits
 //   GET    /.well-known/security.txt        how to report a vulnerability
+//   GET    /update.json                     update manifest of both apps (docs/UPDATES.md)
+//   GET    /download/<file>                 clipway-<x.y.z>.apk or clipway-mac-<x.y.z>.zip, nothing else
+// The last two serve files from CLIPWAY_RELEASES_DIR, read only, as published by tools/publish.sh;
+// without it, they answer 404. They need no proof and carry no identifier.
 //
 // Environment: PORT (7710), HOST (all interfaces), CLIPWAY_TRUST_PROXY (0), CLIPWAY_TTL_H (24, at most 24),
-// CLIPWAY_MAX_TOTAL_MB (256), CLIPWAY_PING_S (240), CLIPWAY_DEAD_S (600).
+// CLIPWAY_MAX_TOTAL_MB (256), CLIPWAY_PING_S (240), CLIPWAY_DEAD_S (600), CLIPWAY_RELEASES_DIR (none).
 //
 // Log: counters every hour and errors. Never an IP address, never a full chain id (6 characters),
 // never a proof, a nonce, the size of a given item or any content.
 
 import http from "node:http";
 import { isIP } from "node:net";
-import { readFileSync } from "node:fs";
+import { readFileSync, createReadStream, lstatSync } from "node:fs";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -102,6 +106,22 @@ export const CLOSE = Object.freeze({
   protocol: 4002,
   syncTimeout: 4003,
 });
+
+/**
+ * Files of a release that GET /download/<file> serves: two exact forms, a version in digits, so no
+ * "/", "..", "%" or other file can be named.
+ */
+export const RE_DOWNLOAD = /^clipway-(?:mac-)?\d{1,4}\.\d{1,4}\.\d{1,4}\.(?:apk|zip)$/;
+const DOWNLOAD_TYPES = { ".apk": "application/vnd.android.package-archive", ".zip": "application/zip" };
+/** The update manifest: a small file, re-read at each request. */
+const MANIFEST_MAX = 64 * 1024;
+
+/** True if GET /download/<name> may serve this name: an APK for Android, a zip for the Mac. */
+export function downloadName(name) {
+  if (typeof name !== "string" || !RE_DOWNLOAD.test(name)) return false;
+  // Only Android gets an APK, only the Mac a zip.
+  return name.startsWith("clipway-mac-") ? name.endsWith(".zip") : name.endsWith(".apk");
+}
 
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
@@ -225,6 +245,7 @@ export function start(options = {}) {
     pingMs: 4 * MINUTE,
     deadMs: 10 * MINUTE,
     trustProxy: false,
+    releasesDir: null,
     quiet: false,
     log: null,
     sweepMs: 30_000,
@@ -409,6 +430,79 @@ export function start(options = {}) {
     limits: publicLimits(),
   });
 
+  // ---------------------------------------------------------------------------
+  // Updates: files published in the releases folder, read only (docs/UPDATES.md)
+  // ---------------------------------------------------------------------------
+
+  const releases = o.releasesDir ? path.resolve(o.releasesDir) : null;
+
+  /** A regular file directly in the releases folder (no link, no subfolder), or null. */
+  function published(name) {
+    if (!releases) return null;
+    const f = path.join(releases, name);
+    if (path.dirname(f) !== releases) return null;
+    try {
+      const st = lstatSync(f);
+      return st.isFile() ? { f, size: st.size, mtime: st.mtime } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** GET /update.json: the file as published, checked to be small and well formed. */
+  function serveManifest(req, res) {
+    const p = published("update.json");
+    if (!p || p.size > MANIFEST_MAX) return json(res, 404, { error: "no published version" });
+    let body;
+    try {
+      body = readFileSync(p.f);
+      const m = JSON.parse(body.toString("utf8"));
+      if (!m || typeof m !== "object" || Array.isArray(m)) throw new Error("not an object");
+    } catch (e) {
+      logError("manifest", e?.message ?? "unreadable");
+      return json(res, 404, { error: "no published version" });
+    }
+    res.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Length": body.length,
+      // Short cache: a new release reaches the apps within 5 minutes.
+      "Cache-Control": "public, max-age=300",
+      "Last-Modified": p.mtime.toUTCString(),
+      ...SECURITY_HEADERS,
+    });
+    res.end(req.method === "HEAD" ? undefined : body);
+  }
+
+  /** GET /download/<name>: an APK or a zip of the releases folder, name checked strictly. */
+  function serveDownload(req, res, name) {
+    const p = downloadName(name) ? published(name) : null;
+    if (!p) return json(res, 404, { error: "not found" });
+    const headers = {
+      "Content-Type": DOWNLOAD_TYPES[path.extname(name)],
+      "Content-Length": p.size,
+      "Content-Disposition": `attachment; filename="${name}"`,
+      // One name per version: a published file never changes.
+      "Cache-Control": "public, max-age=86400, immutable",
+      "Last-Modified": p.mtime.toUTCString(),
+      ...SECURITY_HEADERS,
+    };
+    if (req.method === "HEAD") {
+      res.writeHead(200, headers);
+      return res.end();
+    }
+    const stream = createReadStream(p.f);
+    stream.once("open", () => {
+      res.writeHead(200, headers);
+      stream.pipe(res);
+    });
+    stream.once("error", (e) => {
+      logError("download", e?.code ?? "unreadable");
+      if (!res.headersSent) json(res, 404, { error: "not found" });
+      else res.destroy();
+    });
+    res.once("close", () => stream.destroy());
+  }
+
   /** Erases what the relay holds for a chain and closes its connections with 4001. */
   function erase(id) {
     const c = findChain(id);
@@ -446,6 +540,10 @@ export function start(options = {}) {
       const body = `Contact: mailto:contact@sidali.dev\nExpires: ${expires}\nPreferred-Languages: en, fr\n`;
       res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600", ...SECURITY_HEADERS });
       return res.end(body);
+    }
+    if (req.method === "GET" || req.method === "HEAD") {
+      if (url.pathname === "/update.json") return serveManifest(req, res);
+      if (url.pathname.startsWith("/download/")) return serveDownload(req, res, url.pathname.slice("/download/".length));
     }
     if (req.method === "DELETE" && url.pathname === "/chain") {
       const id = idFromHexProof(req.headers["x-clipway-proof"]);
@@ -819,6 +917,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       maxTotalBytes: envNumber("CLIPWAY_MAX_TOTAL_MB", 256) * MIB,
       pingMs: envNumber("CLIPWAY_PING_S", 240) * 1000,
       deadMs: envNumber("CLIPWAY_DEAD_S", 600) * 1000,
+      releasesDir: process.env.CLIPWAY_RELEASES_DIR || null,
     });
   } catch (e) {
     console.error(new Date().toISOString(), "error: cannot start:", e?.code ?? e?.message);

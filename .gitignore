@@ -3,3 +3,5 @@ node_modules/
 *.jks
 keystore.properties
 .env
+# Release files made by tools/release.sh (APK, zip, update.json)
+/build/

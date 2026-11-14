@@ -1,12 +1,14 @@
 name: clipway
 # Relay of the reference service, clip.sidali.dev, behind the host's Traefik (network traefik_web).
 # Deploy, on the server, in the folder holding this repository ($CLIPWAY_DIR):
-#   cd "$CLIPWAY_DIR" && git pull && docker compose -f deploy/docker-compose.yml up -d --build
+#   cd "$CLIPWAY_DIR" && git pull && CLIPWAY_RELEASES_HOST_DIR=/path/to/releases docker compose -f deploy/docker-compose.yml up -d --build
+# CLIPWAY_RELEASES_HOST_DIR: the folder tools/publish.sh copies releases into (update.json, APK, zip),
+# mounted read only: the relay serves it on /update.json and /download/<file> (docs/UPDATES.md).
 services:
   relay:
     build:
       context: ../relay
-    image: clipway-relay:0.4.0
+    image: clipway-relay:0.4.1
     container_name: clipway-relay
     restart: unless-stopped
     read_only: true
@@ -22,6 +24,9 @@ services:
       CLIPWAY_TRUST_PROXY: "1"
       CLIPWAY_TTL_H: "24"
       CLIPWAY_MAX_TOTAL_MB: "256"
+      CLIPWAY_RELEASES_DIR: /releases
+    volumes:
+      - ${CLIPWAY_RELEASES_HOST_DIR:?set CLIPWAY_RELEASES_HOST_DIR to the host folder of published versions}:/releases:ro
     logging:
       driver: json-file
       options: { max-size: "5m", max-file: "2" }
